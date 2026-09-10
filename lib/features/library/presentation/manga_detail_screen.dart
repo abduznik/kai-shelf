@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/backend/models.dart';
 import '../../../core/providers/library_providers.dart';
+import '../../downloads/presentation/widgets/download_chapter_button.dart';
 
 class MangaDetailScreen extends ConsumerWidget {
   const MangaDetailScreen({super.key, required this.mangaId});
@@ -49,6 +50,11 @@ class MangaDetailScreen extends ConsumerWidget {
                       subtitle: chapter.uploadDate != null
                           ? Text(_formatDate(chapter.uploadDate!))
                           : null,
+                      trailing: DownloadChapterButton(
+                        mangaId: mangaId,
+                        mangaTitle: manga.title,
+                        chapter: chapter,
+                      ),
                       onTap: () =>
                           context.push('/reader/$mangaId/${chapter.id}'),
                     );

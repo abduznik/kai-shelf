@@ -1,7 +1,7 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../core/backend/models.dart';
+import 'widgets/page_image.dart';
 
 class WebtoonReaderView extends StatefulWidget {
   const WebtoonReaderView({
@@ -62,19 +62,9 @@ class _WebtoonReaderViewState extends State<WebtoonReaderView> {
       itemCount: widget.pages.length,
       itemBuilder: (context, index) {
         final page = widget.pages[index];
-        return CachedNetworkImage(
-          imageUrl: page.imageUrl,
-          httpHeaders: page.extraHeaders,
-          fit: BoxFit.fitWidth,
+        return SizedBox(
           width: double.infinity,
-          placeholder: (context, url) => const SizedBox(
-            height: 400,
-            child: Center(child: CircularProgressIndicator()),
-          ),
-          errorWidget: (context, url, error) => const SizedBox(
-            height: 200,
-            child: Center(child: Icon(Icons.broken_image_outlined)),
-          ),
+          child: PageImage(page: page, fit: BoxFit.fitWidth),
         );
       },
     );

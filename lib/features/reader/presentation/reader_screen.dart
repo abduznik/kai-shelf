@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/download/offline_page_resolver.dart';
 import '../../../core/providers/backend_providers.dart';
-import '../../../core/providers/library_providers.dart';
 import '../../../core/providers/reader_prefs_provider.dart';
 import '../../../core/providers/storage_providers.dart';
 import '../domain/reader_progress_tracker.dart';
@@ -68,7 +68,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final pagesAsync = ref.watch(pagesProvider(widget.chapterId));
+    final pagesAsync = ref.watch(offlinePagesProvider(widget.chapterId));
     final mode = ref.watch(readerModeProvider);
 
     return Scaffold(

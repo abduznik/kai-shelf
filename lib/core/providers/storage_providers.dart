@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../download/downloaded_chapters_repository.dart';
 import '../storage/app_database.dart';
 import '../storage/reading_progress_repository.dart';
 
@@ -18,4 +19,12 @@ final readingProgressRepositoryProvider =
   final db = dbAsync.value;
   if (db == null) return null;
   return ReadingProgressRepository(db);
+});
+
+final downloadedChaptersRepositoryProvider =
+    Provider<DownloadedChaptersRepository?>((ref) {
+  final dbAsync = ref.watch(appDatabaseProvider);
+  final db = dbAsync.value;
+  if (db == null) return null;
+  return DownloadedChaptersRepository(db);
 });

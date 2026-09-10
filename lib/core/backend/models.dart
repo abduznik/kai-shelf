@@ -65,8 +65,12 @@ class KsChapter {
 }
 
 class KsPage {
-  const KsPage(
-      {required this.index, required this.imageUrl, this.extraHeaders});
+  const KsPage({
+    required this.index,
+    required this.imageUrl,
+    this.extraHeaders,
+    this.localPath,
+  });
 
   final int index;
   final String imageUrl;
@@ -75,6 +79,12 @@ class KsPage {
   /// Komga/Kavita image endpoints need per-request auth that plain
   /// cached_network_image URL fetches wouldn't otherwise carry.
   final Map<String, String>? extraHeaders;
+
+  /// Set when this page has been downloaded — readers should load from
+  /// this file instead of fetching [imageUrl] over the network.
+  final String? localPath;
+
+  bool get isLocal => localPath != null;
 }
 
 class KsUser {

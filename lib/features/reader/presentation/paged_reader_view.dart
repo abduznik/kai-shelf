@@ -1,8 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
 
 import '../../../core/backend/models.dart';
+import 'widgets/page_image.dart';
 
 class PagedReaderView extends StatefulWidget {
   const PagedReaderView({
@@ -50,16 +50,7 @@ class _PagedReaderViewState extends State<PagedReaderView> {
           minScale: PhotoViewComputedScale.contained,
           maxScale: PhotoViewComputedScale.covered * 3,
           backgroundDecoration: const BoxDecoration(color: Colors.black),
-          child: CachedNetworkImage(
-            imageUrl: page.imageUrl,
-            httpHeaders: page.extraHeaders,
-            fit: BoxFit.contain,
-            placeholder: (context, url) =>
-                const Center(child: CircularProgressIndicator()),
-            errorWidget: (context, url, error) => const Center(
-              child: Icon(Icons.broken_image_outlined, color: Colors.white54),
-            ),
-          ),
+          child: PageImage(page: page, fit: BoxFit.contain),
         );
       },
     );
