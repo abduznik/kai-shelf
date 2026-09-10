@@ -11,6 +11,24 @@ class SuwayomiQueries {
     }
   ''';
 
+  static const loginMutation = r'''
+    mutation Login($username: String!, $password: String!) {
+      login(input: { username: $username, password: $password }) {
+        accessToken
+        refreshToken
+      }
+    }
+  ''';
+
+  static const refreshTokenMutation = r'''
+    mutation RefreshToken($refreshToken: String!) {
+      refreshToken(input: { refreshToken: $refreshToken }) {
+        accessToken
+        refreshToken
+      }
+    }
+  ''';
+
   static const categoryListQuery = r'''
     query CategoryList {
       categories {

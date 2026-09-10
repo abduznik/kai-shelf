@@ -94,6 +94,7 @@ class ServerConnectionInfo {
     required this.baseUrl,
     required this.type,
     this.sessionToken,
+    this.refreshToken,
     this.apiKey,
     this.extraHeaders = const {},
   });
@@ -103,11 +104,16 @@ class ServerConnectionInfo {
   final Uri baseUrl;
   final BackendType type;
   final String? sessionToken;
+
+  /// Long-lived token used to mint a new [sessionToken] once it expires
+  /// (Suwayomi's access/refresh JWT pair).
+  final String? refreshToken;
   final String? apiKey;
   final Map<String, String> extraHeaders;
 
   ServerConnectionInfo copyWith({
     String? sessionToken,
+    String? refreshToken,
     String? apiKey,
     Map<String, String>? extraHeaders,
   }) {
@@ -117,6 +123,7 @@ class ServerConnectionInfo {
       baseUrl: baseUrl,
       type: type,
       sessionToken: sessionToken ?? this.sessionToken,
+      refreshToken: refreshToken ?? this.refreshToken,
       apiKey: apiKey ?? this.apiKey,
       extraHeaders: extraHeaders ?? this.extraHeaders,
     );

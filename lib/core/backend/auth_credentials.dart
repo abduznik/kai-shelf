@@ -5,7 +5,7 @@ import 'models.dart';
 sealed class AuthCredentials {
   const AuthCredentials();
 
-  const factory AuthCredentials.suwayomi({String? password}) =
+  const factory AuthCredentials.suwayomi({String? username, String? password}) =
       SuwayomiCredentials;
 
   const factory AuthCredentials.komgaPassword(
@@ -20,7 +20,8 @@ sealed class AuthCredentials {
 }
 
 class SuwayomiCredentials extends AuthCredentials {
-  const SuwayomiCredentials({this.password});
+  const SuwayomiCredentials({this.username, this.password});
+  final String? username;
   final String? password;
 }
 

@@ -23,6 +23,7 @@ class AddServerScreen extends ConsumerStatefulWidget {
 }
 
 class _AddServerScreenState extends ConsumerState<AddServerScreen> {
+  String _username = '';
   String _password = '';
   String _email = '';
   String _apiKey = '';
@@ -54,7 +55,9 @@ class _AddServerScreenState extends ConsumerState<AddServerScreen> {
 
     final credentials = switch (detection.type) {
       BackendType.suwayomi => AuthCredentials.suwayomi(
-          password: _password.isEmpty ? null : _password),
+          username: _username.isEmpty ? null : _username,
+          password: _password.isEmpty ? null : _password,
+        ),
       BackendType.komga => _apiKey.isNotEmpty
           ? AuthCredentials.komgaApiKey(apiKey: _apiKey)
           : AuthCredentials.komgaPassword(email: _email, password: _password),
@@ -135,6 +138,7 @@ class _AddServerScreenState extends ConsumerState<AddServerScreen> {
               const SizedBox(height: 16),
               switch (formState.detectionResult!.type) {
                 BackendType.suwayomi => SuwayomiAuthFields(
+                    onUsernameChanged: (v) => setState(() => _username = v),
                     onPasswordChanged: (v) => setState(() => _password = v),
                   ),
                 BackendType.komga => KomgaAuthFields(

@@ -52,14 +52,23 @@ class BackendDetector {
 
   Future<BackendType?> _probeSuwayomi(Uri baseUrl) async {
     try {
+      // Suwayomi gates most REST endpoints behind auth, but its GraphQL
+      // aboutServer query is exempt from the @requireAuth directive — this
+      // is the one fingerprint that works whether or not the instance has
+      // a password configured.
       final response = await _client
-          .get(baseUrl.replace(path: '/api/v1/settings/about'))
+          .post(
+            baseUrl.replace(path: '/api/graphql'),
+            headers: {'Content-Type': 'application/json'},
+            body:
+                jsonEncode({'query': '{ aboutServer { buildType version } }'}),
+          )
           .timeout(_timeout);
       if (response.statusCode != 200) return null;
       final body = jsonDecode(response.body);
-      if (body is Map &&
-          body.containsKey('buildType') &&
-          body.containsKey('version')) {
+      final data = body is Map ? body['data'] : null;
+      final aboutServer = data is Map ? data['aboutServer'] : null;
+      if (aboutServer is Map && aboutServer.containsKey('version')) {
         return BackendType.suwayomi;
       }
     } catch (_) {

@@ -8,12 +8,17 @@ import 'package:kai_shelf/core/backend/models.dart';
 
 void main() {
   group('BackendDetector', () {
-    test('identifies a Suwayomi server from the /settings/about shape',
+    test(
+        'identifies a Suwayomi server from the unauthenticated aboutServer GraphQL query',
         () async {
       final client = MockClient((request) async {
-        if (request.url.path == '/api/v1/settings/about') {
+        if (request.url.path == '/api/graphql' && request.method == 'POST') {
           return http.Response(
-            jsonEncode({'buildType': 'Stable', 'version': '1.0.0'}),
+            jsonEncode({
+              'data': {
+                'aboutServer': {'buildType': 'Stable', 'version': '1.0.0'},
+              },
+            }),
             200,
             headers: {'content-type': 'application/json'},
           );
