@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'core/router/app_router.dart';
 
 void main() {
-  runApp(const KaiShelfApp());
+  runApp(const ProviderScope(child: KaiShelfApp()));
 }
 
 class KaiShelfApp extends StatelessWidget {
@@ -9,7 +12,7 @@ class KaiShelfApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'Kai-Shelf',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -23,11 +26,7 @@ class KaiShelfApp extends StatelessWidget {
         brightness: Brightness.dark,
       ),
       themeMode: ThemeMode.system,
-      home: const Scaffold(
-        body: Center(
-          child: Text('Kai-Shelf — Coming Soon'),
-        ),
-      ),
+      routerConfig: appRouter,
     );
   }
 }
