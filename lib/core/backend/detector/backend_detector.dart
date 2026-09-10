@@ -79,16 +79,18 @@ class BackendDetector {
 
   Future<BackendType?> _probeKomga(Uri baseUrl) async {
     try {
+      // /api/v2/users/me is auth-gated (401 with no guaranteed body shape
+      // from Spring Security's default entry point) so it can't be used
+      // for detection. /api/v1/claim is explicitly unauthenticated in
+      // Komga's OpenAPI spec and returns a Komga-specific {isClaimed} JSON
+      // shape regardless of whether the instance has an admin set up.
       final response = await _client
-          .get(baseUrl.replace(path: '/api/v2/users/me'))
+          .get(baseUrl.replace(path: '/api/v1/claim'))
           .timeout(_timeout);
-      // Komga responds 401 Unauthorized with its own error envelope when
-      // hit without credentials — that shape is itself the fingerprint.
-      if (response.statusCode == 401 || response.statusCode == 200) {
-        final contentType = response.headers['content-type'] ?? '';
-        if (contentType.contains('application/json')) {
-          return BackendType.komga;
-        }
+      if (response.statusCode != 200) return null;
+      final body = jsonDecode(response.body);
+      if (body is Map && body.containsKey('isClaimed')) {
+        return BackendType.komga;
       }
     } catch (_) {}
     return null;

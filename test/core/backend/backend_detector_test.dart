@@ -33,13 +33,13 @@ void main() {
       expect(result!.type, BackendType.suwayomi);
     });
 
-    test('identifies a Komga server from its authenticated-me endpoint shape',
+    test('identifies a Komga server from its unauthenticated claim endpoint',
         () async {
       final client = MockClient((request) async {
-        if (request.url.path == '/api/v2/users/me') {
+        if (request.url.path == '/api/v1/claim') {
           return http.Response(
-            jsonEncode({'error': 'Unauthorized'}),
-            401,
+            jsonEncode({'isClaimed': true}),
+            200,
             headers: {'content-type': 'application/json'},
           );
         }
