@@ -1,0 +1,19 @@
+name: Build
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_mode:
+        description: "Build mode"
+        type: choice
+        options:
+          - debug
+          - release
+        default: debug
+
+jobs:
+  build:
+    name: Build all platforms
+    uses: ./.github/workflows/build-reusable.yml
+    with:
+      build_mode: ${{ inputs.build_mode }}
