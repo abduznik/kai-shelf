@@ -12,6 +12,7 @@ dependencies:
   # HTTP & API
   http: ^1.2.0
   graphql_flutter: ^5.2.0    # Suwayomi GraphQL API
+  graphql: ^5.2.0
   # State management
   flutter_riverpod: ^2.6.0
   # Storage
@@ -29,6 +30,8 @@ dependencies:
   path_provider: ^2.1.4
   # Reader
   photo_view: ^0.15.0
+  # IDs
+  uuid: ^4.4.0
 
 dev_dependencies:
   flutter_test:
