@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/add_server_screen.dart';
 import '../../features/downloads/presentation/downloads_screen.dart';
 import '../../features/library/presentation/library_screen.dart';
+import '../../features/library/presentation/manga_detail_screen.dart';
 import '../../features/reader/presentation/reader_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../shell/app_shell.dart';
@@ -30,6 +31,11 @@ final GoRouter appRouter = GoRouter(
           builder: (context, state) => const SettingsScreen(),
         ),
       ],
+    ),
+    GoRoute(
+      path: '/manga/:mangaId',
+      builder: (context, state) =>
+          MangaDetailScreen(mangaId: state.pathParameters['mangaId']!),
     ),
     GoRoute(
       path: '/reader/:mangaId/:chapterId',
