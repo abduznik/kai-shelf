@@ -95,8 +95,9 @@ class KomgaBackend implements ServerBackend {
       {String? libraryId, String? searchQuery, int page = 0}) async {
     final query = <String, String>{'page': page.toString()};
     if (libraryId != null) query['library_id'] = libraryId;
-    if (searchQuery != null && searchQuery.isNotEmpty)
+    if (searchQuery != null && searchQuery.isNotEmpty) {
       query['search'] = searchQuery;
+    }
 
     final response =
         await _client.get(_uri('/api/v1/series', query), headers: _authHeaders);
