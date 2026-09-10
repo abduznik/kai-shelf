@@ -1,0 +1,36 @@
+name: kai_shelf
+description: A cross-platform Flutter manga & comics reader for self-hosted servers — Suwayomi, Komga, Kavita & more.
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # HTTP & API
+  http: ^1.2.0
+  graphql_flutter: ^5.2.0    # Suwayomi GraphQL API
+  # State management
+  flutter_riverpod: ^2.6.0
+  # Storage
+  shared_preferences: ^2.3.0
+  sqflite: ^2.4.0
+  # UI
+  cached_network_image: ^3.4.0
+  flutter_staggered_animations: ^1.1.0
+  material_design_icons_flutter: ^7.0.0
+  # Navigation
+  go_router: ^14.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  build_runner: ^2.4.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/
