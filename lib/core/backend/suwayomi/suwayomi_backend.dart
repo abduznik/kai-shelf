@@ -19,7 +19,7 @@ import 'suwayomi_queries.dart';
 /// the login mutation was rejected as Unauthorized on the very next
 /// request. BASIC_AUTH has no session/expiry to manage and is the only
 /// mode Kai-Shelf supports.
-class SuwayomiBackend implements ServerBackend {
+class SuwayomiBackend implements ServerBackend, SourceCapableBackend {
   SuwayomiBackend(ServerConnectionInfo connectionInfo,
       {http.Client? httpClient})
       : _connectionInfo = connectionInfo,
@@ -261,6 +261,61 @@ class SuwayomiBackend implements ServerBackend {
           'isRead': read,
           'lastPageRead': lastPageRead?.round(),
         },
+        fetchPolicy: FetchPolicy.noCache,
+      ),
+    );
+    _throwIfAuthError(result);
+  }
+
+  @override
+  Future<List<KsSource>> getSources() async {
+    final result = await _client.query(
+      QueryOptions(
+          document: gql(SuwayomiQueries.sourceListQuery),
+          fetchPolicy: FetchPolicy.networkOnly),
+    );
+    _throwIfAuthError(result);
+
+    final nodes = result.data?['sources']?['nodes'] as List? ?? [];
+    return nodes
+        .map((n) => SuwayomiMappers.sourceFromJson(n as Map<String, dynamic>))
+        .toList();
+  }
+
+  @override
+  Future<List<KsSourceManga>> searchSource(String sourceId, String query,
+      {int page = 0}) async {
+    final result = await _client.query(
+      QueryOptions(
+        document: gql(SuwayomiQueries.sourceSearchQuery),
+        variables: {
+          'sourceId': sourceId,
+          'searchQuery': query,
+          'page': page,
+        },
+        fetchPolicy: FetchPolicy.networkOnly,
+      ),
+    );
+    _throwIfAuthError(result);
+
+    final nodes = result.data?['fetchSourceManga']?['mangas'] as List? ?? [];
+    return nodes
+        .map((n) => SuwayomiMappers.sourceMangaFromJson(
+              n as Map<String, dynamic>,
+              buildImageUrl: buildImageUrl,
+              coverHeaders: _connectionInfo.extraHeaders.isEmpty
+                  ? null
+                  : _connectionInfo.extraHeaders,
+            ))
+        .toList();
+  }
+
+  @override
+  Future<void> addToLibrary(String sourceMangaId) async {
+    final result = await _client.mutate(
+      MutationOptions(
+        document: gql(SuwayomiQueries.addMangaToLibraryMutation),
+        variables: {'id': int.parse(sourceMangaId)},
         fetchPolicy: FetchPolicy.noCache,
       ),
     );

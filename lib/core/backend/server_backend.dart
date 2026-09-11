@@ -26,3 +26,15 @@ abstract class ServerBackend {
   /// what that URL — and any headers it needs — looks like.
   Uri buildImageUrl(String pathOrId);
 }
+
+/// Optional capability for backends that have a "source catalog" concept to
+/// discover manga not yet in the library (currently: Suwayomi only).
+/// Feature code should check `backend is SourceCapableBackend` rather than
+/// assuming every backend supports this — Komga/Kavita just index whatever
+/// is already on disk, so there is nothing to browse/search server-side.
+abstract class SourceCapableBackend {
+  Future<List<KsSource>> getSources();
+  Future<List<KsSourceManga>> searchSource(String sourceId, String query,
+      {int page = 0});
+  Future<void> addToLibrary(String sourceMangaId);
+}

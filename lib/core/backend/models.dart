@@ -94,6 +94,43 @@ class KsPage {
   bool get isLocal => localPath != null;
 }
 
+/// A source/extension catalog that can be browsed or searched to discover
+/// manga not yet in the local library. Only meaningful for backends that
+/// have this concept (Suwayomi) — Komga/Kavita just index whatever's
+/// already on disk, so there is nothing to "discover" there.
+class KsSource {
+  const KsSource(
+      {required this.id, required this.name, this.lang, this.iconUrl});
+
+  final String id;
+  final String name;
+  final String? lang;
+  final String? iconUrl;
+}
+
+/// A search/browse result from a source catalog, distinct from [KsManga]
+/// (an in-library manga) because it may not have a library-scoped id or
+/// full metadata until actually added.
+class KsSourceManga {
+  const KsSourceManga({
+    required this.id,
+    required this.title,
+    this.coverUrl,
+    this.coverHeaders,
+    this.description,
+    this.genres = const [],
+    this.inLibrary = false,
+  });
+
+  final String id;
+  final String title;
+  final String? coverUrl;
+  final Map<String, String>? coverHeaders;
+  final String? description;
+  final List<String> genres;
+  final bool inLibrary;
+}
+
 class KsUser {
   const KsUser(
       {required this.id, required this.displayName, this.isAdmin = false});

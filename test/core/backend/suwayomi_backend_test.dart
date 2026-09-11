@@ -303,4 +303,95 @@ void main() {
       expect(pages[1].imageUrl, contains('/api/v1/manga/19/chapter/1/page/1'));
     });
   });
+
+  group('SuwayomiBackend source discovery', () {
+    test('getSources maps the installed source list', () async {
+      final client = MockClient((request) async {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        final query = body['query'] as String;
+        if (query.contains('SourceList')) {
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'sources': {
+                  'nodes': [
+                    {'id': '1', 'name': 'MangaDex', 'lang': 'en'},
+                  ],
+                },
+              },
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('not found', 404);
+      });
+
+      final backend = SuwayomiBackend(_connectionInfo(), httpClient: client);
+      final sources = await backend.getSources();
+
+      expect(sources, hasLength(1));
+      expect(sources.first.name, 'MangaDex');
+      expect(sources.first.lang, 'en');
+    });
+
+    test('searchSource maps results and flags items already in library',
+        () async {
+      final client = MockClient((request) async {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        final query = body['query'] as String;
+        if (query.contains('SourceSearch')) {
+          expect((body['variables'] as Map)['searchQuery'], 'naruto');
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'fetchSourceManga': {
+                  'mangas': [
+                    {'id': 42, 'title': 'Naruto', 'inLibrary': false},
+                  ],
+                  'hasNextPage': false,
+                },
+              },
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('not found', 404);
+      });
+
+      final backend = SuwayomiBackend(_connectionInfo(), httpClient: client);
+      final results = await backend.searchSource('1', 'naruto');
+
+      expect(results, hasLength(1));
+      expect(results.first.title, 'Naruto');
+      expect(results.first.inLibrary, isFalse);
+    });
+
+    test('addToLibrary sends the manga id to the updateManga mutation',
+        () async {
+      final client = MockClient((request) async {
+        final body = jsonDecode(request.body) as Map<String, dynamic>;
+        final query = body['query'] as String;
+        if (query.contains('AddMangaToLibrary')) {
+          expect((body['variables'] as Map)['id'], 42);
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'updateManga': {
+                  'manga': {'id': 42, 'inLibrary': true},
+                },
+              },
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('not found', 404);
+      });
+
+      final backend = SuwayomiBackend(_connectionInfo(), httpClient: client);
+      await backend.addToLibrary('42');
+    });
+  });
 }

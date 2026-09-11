@@ -115,6 +115,59 @@ class SuwayomiQueries {
     }
   ''';
 
+  /// Lists installed sources (extensions) — the "catalogs" a user can
+  /// search to discover manga not yet in their library, same concept as
+  /// Tachiyomi/Mihon's source browser.
+  static const sourceListQuery = r'''
+    query SourceList {
+      sources {
+        nodes {
+          id
+          name
+          lang
+          iconUrl
+        }
+      }
+    }
+  ''';
+
+  /// Searches one source's catalog by title. `fetchSourceManga` covers both
+  /// browsing (empty query) and searching (non-empty query) via the same
+  /// field, differentiated by `type`.
+  static const sourceSearchQuery = r'''
+    query SourceSearch($sourceId: LongString!, $searchQuery: String!, $page: Int!) {
+      fetchSourceManga(
+        input: { source: $sourceId, type: SEARCH, query: $searchQuery, page: $page }
+      ) {
+        mangas {
+          id
+          title
+          thumbnailUrl
+          description
+          genre
+          status
+          inLibrary
+        }
+        hasNextPage
+      }
+    }
+  ''';
+
+  /// Adds a source-catalog result to the local library. Suwayomi tracks
+  /// library membership as a boolean flag on the manga itself (there's no
+  /// separate "add" mutation) — confirmed against the schema's
+  /// UpdateMangaPatch.inLibrary field.
+  static const addMangaToLibraryMutation = r'''
+    mutation AddMangaToLibrary($id: Int!) {
+      updateManga(input: { id: $id, patch: { inLibrary: true } }) {
+        manga {
+          id
+          inLibrary
+        }
+      }
+    }
+  ''';
+
   static const updateChapterMutation = r'''
     mutation UpdateChapter($id: Int!, $isRead: Boolean, $lastPageRead: Int) {
       updateChapter(

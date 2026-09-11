@@ -55,6 +55,36 @@ class SuwayomiMappers {
     );
   }
 
+  static KsSource sourceFromJson(Map<String, dynamic> json) {
+    return KsSource(
+      id: json['id'].toString(),
+      name: json['name'] as String,
+      lang: json['lang'] as String?,
+      iconUrl: json['iconUrl'] as String?,
+    );
+  }
+
+  static KsSourceManga sourceMangaFromJson(
+    Map<String, dynamic> json, {
+    Uri Function(String path)? buildImageUrl,
+    Map<String, String>? coverHeaders,
+  }) {
+    final thumbnailPath = json['thumbnailUrl'] as String?;
+    return KsSourceManga(
+      id: json['id'].toString(),
+      title: json['title'] as String,
+      coverUrl: thumbnailPath == null
+          ? null
+          : (buildImageUrl?.call(thumbnailPath) ?? Uri.parse(thumbnailPath))
+              .toString(),
+      coverHeaders: coverHeaders,
+      description: json['description'] as String?,
+      genres: (json['genre'] as List?)?.map((g) => g.toString()).toList() ??
+          const [],
+      inLibrary: json['inLibrary'] as bool? ?? false,
+    );
+  }
+
   static KsChapter chapterFromJson(Map<String, dynamic> json) {
     return KsChapter(
       id: json['id'].toString(),

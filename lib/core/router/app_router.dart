@@ -4,6 +4,8 @@ import '../../features/auth/presentation/add_server_screen.dart';
 import '../../features/downloads/presentation/downloads_screen.dart';
 import '../../features/library/presentation/library_screen.dart';
 import '../../features/library/presentation/manga_detail_screen.dart';
+import '../../features/library/presentation/source_list_screen.dart';
+import '../../features/library/presentation/source_search_screen.dart';
 import '../../features/reader/presentation/reader_screen.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 import '../shell/app_shell.dart';
@@ -31,6 +33,17 @@ final GoRouter appRouter = GoRouter(
           builder: (context, state) => const SettingsScreen(),
         ),
       ],
+    ),
+    GoRoute(
+      path: '/discover',
+      builder: (context, state) => const SourceListScreen(),
+    ),
+    GoRoute(
+      path: '/discover/:sourceId',
+      builder: (context, state) => SourceSearchScreen(
+        sourceId: state.pathParameters['sourceId']!,
+        sourceName: state.uri.queryParameters['name'] ?? 'Source',
+      ),
     ),
     GoRoute(
       path: '/manga/:mangaId',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/backend/server_backend.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../../core/providers/library_providers.dart';
 import 'widgets/manga_grid_tile.dart';
@@ -52,6 +53,14 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Library'),
+        actions: [
+          if (backend is SourceCapableBackend)
+            IconButton(
+              icon: const Icon(Icons.explore_outlined),
+              tooltip: 'Discover new manga',
+              onPressed: () => context.push('/discover'),
+            ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(56),
           child: Padding(
