@@ -59,6 +59,45 @@ void main() {
       expect(result!.type, BackendType.suwayomi);
     });
 
+    test(
+        'follows a single 308 redirect on the Suwayomi POST probe (bare http:// against an https-only server)',
+        () async {
+      // Confirmed against a real duckdns-hosted server: it 308-redirects
+      // plain http:// to https://, and dart:io's HttpClient (what
+      // package:http uses off web) does not auto-follow redirects on POST
+      // — only GET/HEAD. This previously meant detection silently failed
+      // on Android/Windows/etc. for any server the user reached over bare
+      // http while working fine on Flutter Web, where fetch() follows POST
+      // redirects transparently.
+      final client = MockClient((request) async {
+        if (request.url.scheme == 'http' &&
+            request.url.path == '/api/graphql') {
+          return http.Response(
+            '',
+            308,
+            headers: {'location': 'https://example.com:4567/api/graphql'},
+          );
+        }
+        if (request.url.scheme == 'https' &&
+            request.url.path == '/api/graphql') {
+          return http.Response('Unauthorized', 401,
+              headers: {'content-type': 'text/plain'});
+        }
+        return http.Response('not found', 404);
+      });
+
+      final detector = BackendDetector(client: client);
+      final result = await detector.detect('example.com:4567');
+
+      expect(result, isNotNull);
+      expect(result!.type, BackendType.suwayomi);
+      // The stored connection URL must be the one actually reached
+      // (https), not the original http:// guess — otherwise every later
+      // GraphQL call via SuwayomiBackend would hit this same
+      // un-followed-POST-redirect problem again.
+      expect(result.normalizedBaseUrl.scheme, 'https');
+    });
+
     test('identifies a Komga server from its unauthenticated claim endpoint',
         () async {
       final client = MockClient((request) async {
