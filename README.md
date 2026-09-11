@@ -28,6 +28,17 @@
 
 ---
 
+## Screenshots
+
+<p align="center">
+  <img src="assets/screenshots/library.jpg" width="90%" alt="Library grid with manga covers" />
+</p>
+<p align="center">
+  <img src="assets/screenshots/manga-detail.jpg" width="90%" alt="Manga detail screen with chapter list" />
+</p>
+
+---
+
 **Kai-Shelf** is a modern, fast manga and comics reader built with [Flutter](https://flutter.dev). Connect it to your self-hosted manga server and read your library on any device — phone, tablet, desktop, or browser.
 
 Currently supports **[Suwayomi-Server](https://github.com/Suwayomi/Suwayomi-Server)** (formerly Tachidesk). More server backends planned.
