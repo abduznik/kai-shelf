@@ -161,12 +161,10 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 child: mode == ReaderMode.paged
                     ? PagedReaderView(
                         pages: pages,
-                        onPageChanged: (index) =>
-                            _onPageChanged(index, pages))
+                        onPageChanged: (index) => _onPageChanged(index, pages))
                     : WebtoonReaderView(
                         pages: pages,
-                        onPageChanged: (index) =>
-                            _onPageChanged(index, pages)),
+                        onPageChanged: (index) => _onPageChanged(index, pages)),
               ),
               ReaderControlsOverlay(
                 visible: _controlsVisible,

@@ -8,7 +8,8 @@ import 'backend_providers.dart';
 /// Returns an empty list for backends without [SourceCapableBackend]
 /// (Komga/Kavita), rather than throwing — callers can just hide the
 /// discover entry point when this comes back empty.
-final sourceListProvider = FutureProvider.autoDispose<List<KsSource>>((ref) async {
+final sourceListProvider =
+    FutureProvider.autoDispose<List<KsSource>>((ref) async {
   final backend = ref.watch(activeBackendProvider);
   if (backend is! SourceCapableBackend) return [];
   return (backend as SourceCapableBackend).getSources();

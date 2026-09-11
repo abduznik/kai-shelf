@@ -14,7 +14,8 @@ class PagePrefetcher {
   final int lookahead;
   final Set<String> _prefetched = {};
 
-  void prefetchAround(BuildContext context, List<KsPage> pages, int currentIndex) {
+  void prefetchAround(
+      BuildContext context, List<KsPage> pages, int currentIndex) {
     final end = (currentIndex + lookahead).clamp(0, pages.length - 1);
     for (var i = currentIndex; i <= end; i++) {
       final page = pages[i];
@@ -24,7 +25,9 @@ class PagePrefetcher {
       // On web, headers aren't respected by CachedNetworkImage's fetcher
       // (see AuthenticatedImage) — skip prefetching those; the browser's
       // own HTTP cache still helps once PageImage's manual fetch runs.
-      if (kIsWeb && page.extraHeaders != null && page.extraHeaders!.isNotEmpty) {
+      if (kIsWeb &&
+          page.extraHeaders != null &&
+          page.extraHeaders!.isNotEmpty) {
         continue;
       }
 

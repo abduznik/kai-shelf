@@ -33,8 +33,7 @@ class MangaDetailScreen extends ConsumerWidget {
             icon: Icon(sortOrder == ChapterSortOrder.descending
                 ? Icons.arrow_downward
                 : Icons.arrow_upward),
-            onPressed: () =>
-                ref.read(chapterSortProvider.notifier).toggle(),
+            onPressed: () => ref.read(chapterSortProvider.notifier).toggle(),
           ),
           chaptersAsync.maybeWhen(
             data: (chapters) => mangaAsync.maybeWhen(
@@ -204,7 +203,8 @@ class MangaDetailScreen extends ConsumerWidget {
 
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Queued ${targets.length} chapter(s) for download')),
+        SnackBar(
+            content: Text('Queued ${targets.length} chapter(s) for download')),
       );
     }
   }

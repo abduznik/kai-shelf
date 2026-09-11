@@ -18,8 +18,7 @@ class SourceSearchScreen extends ConsumerStatefulWidget {
   final String sourceName;
 
   @override
-  ConsumerState<SourceSearchScreen> createState() =>
-      _SourceSearchScreenState();
+  ConsumerState<SourceSearchScreen> createState() => _SourceSearchScreenState();
 }
 
 class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
@@ -101,8 +100,7 @@ class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) =>
-                  Center(child: Text('Search failed: $error')),
+              error: (error, _) => Center(child: Text('Search failed: $error')),
             ),
     );
   }
