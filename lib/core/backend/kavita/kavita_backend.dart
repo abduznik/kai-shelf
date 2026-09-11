@@ -114,8 +114,11 @@ class KavitaBackend implements ServerBackend {
     _throwIfAuthError(response);
     final list = jsonDecode(response.body) as List;
     return list
-        .map(
-            (json) => KavitaMappers.mangaFromJson(json as Map<String, dynamic>))
+        .map((json) => KavitaMappers.mangaFromJson(
+              json as Map<String, dynamic>,
+              buildImageUrl: buildImageUrl,
+              coverHeaders: _authHeaders.isEmpty ? null : _authHeaders,
+            ))
         .toList();
   }
 
@@ -136,7 +139,12 @@ class KavitaBackend implements ServerBackend {
         ? jsonDecode(metadataResponse.body) as Map<String, dynamic>
         : null;
 
-    return KavitaMappers.mangaFromJson(seriesJson, metadata: metadataJson);
+    return KavitaMappers.mangaFromJson(
+      seriesJson,
+      metadata: metadataJson,
+      buildImageUrl: buildImageUrl,
+      coverHeaders: _authHeaders.isEmpty ? null : _authHeaders,
+    );
   }
 
   @override

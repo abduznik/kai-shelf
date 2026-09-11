@@ -52,10 +52,22 @@ class BackendDetector {
 
   Future<BackendType?> _probeSuwayomi(Uri baseUrl) async {
     try {
-      // Suwayomi gates most REST endpoints behind auth, but its GraphQL
-      // aboutServer query is exempt from the @requireAuth directive — this
-      // is the one fingerprint that works whether or not the instance has
-      // a password configured.
+      // With server.authMode left at its GraphQL-session default,
+      // aboutServer is exempt from the @requireAuth directive and returns
+      // 200 unauthenticated. But with authMode = BASIC_AUTH (the only mode
+      // Kai-Shelf's login actually supports — see SuwayomiBackend's doc
+      // comment), Suwayomi gates EVERY GraphQL field behind auth,
+      // aboutServer included — confirmed against a live BASIC_AUTH
+      // instance, which 401s here.
+      //
+      // Can't fingerprint via the WWW-Authenticate header on that 401:
+      // confirmed in a real browser that fetch() doesn't expose it
+      // cross-origin without the server sending
+      // Access-Control-Expose-Headers, which this server doesn't — a
+      // non-CORS-safelisted response header is simply invisible to web JS.
+      // Instead, treat any 401 specifically at POST /api/graphql as the
+      // fingerprint: Komga and Kavita don't expose this path at all, so
+      // they'd 404 here, not 401.
       final response = await _client
           .post(
             baseUrl.replace(path: '/api/graphql'),
@@ -64,6 +76,11 @@ class BackendDetector {
                 jsonEncode({'query': '{ aboutServer { buildType version } }'}),
           )
           .timeout(_timeout);
+
+      if (response.statusCode == 401) {
+        return BackendType.suwayomi;
+      }
+
       if (response.statusCode != 200) return null;
       final body = jsonDecode(response.body);
       final data = body is Map ? body['data'] : null;

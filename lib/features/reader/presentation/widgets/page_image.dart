@@ -1,9 +1,9 @@
 import 'dart:io';
 
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/backend/models.dart';
+import '../../../../core/widgets/authenticated_image.dart';
 
 /// Renders a single reader page, loading from a downloaded local file when
 /// available and falling back to the network URL (with any auth headers
@@ -25,13 +25,13 @@ class PageImage extends StatelessWidget {
       );
     }
 
-    return CachedNetworkImage(
+    return AuthenticatedImage(
       imageUrl: page.imageUrl,
-      httpHeaders: page.extraHeaders,
+      headers: page.extraHeaders,
       fit: fit,
-      placeholder: (context, url) =>
+      placeholder: (context) =>
           const Center(child: CircularProgressIndicator()),
-      errorWidget: (context, url, error) =>
+      errorWidget: (context, error) =>
           const Center(child: Icon(Icons.broken_image_outlined)),
     );
   }

@@ -1,10 +1,10 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/backend/models.dart';
 import '../../../core/providers/library_providers.dart';
+import '../../../core/widgets/authenticated_image.dart';
 import '../../downloads/presentation/widgets/download_chapter_button.dart';
 
 class MangaDetailScreen extends ConsumerWidget {
@@ -106,8 +106,10 @@ class _MangaHeader extends StatelessWidget {
               width: 100,
               height: 150,
               child: manga.coverUrl != null
-                  ? CachedNetworkImage(
-                      imageUrl: manga.coverUrl!, fit: BoxFit.cover)
+                  ? AuthenticatedImage(
+                      imageUrl: manga.coverUrl!,
+                      headers: manga.coverHeaders,
+                      fit: BoxFit.cover)
                   : Container(
                       color:
                           Theme.of(context).colorScheme.surfaceContainerHighest,

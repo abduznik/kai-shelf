@@ -1,7 +1,7 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/backend/models.dart';
+import '../../../../core/widgets/authenticated_image.dart';
 
 class MangaGridTile extends StatelessWidget {
   const MangaGridTile({super.key, required this.manga, required this.onTap});
@@ -23,15 +23,16 @@ class MangaGridTile extends StatelessWidget {
               child: AspectRatio(
                 aspectRatio: 2 / 3,
                 child: manga.coverUrl != null
-                    ? CachedNetworkImage(
+                    ? AuthenticatedImage(
                         imageUrl: manga.coverUrl!,
+                        headers: manga.coverHeaders,
                         fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(
+                        placeholder: (context) => Container(
                           color: Theme.of(context)
                               .colorScheme
                               .surfaceContainerHighest,
                         ),
-                        errorWidget: (context, url, error) => Container(
+                        errorWidget: (context, error) => Container(
                           color: Theme.of(context)
                               .colorScheme
                               .surfaceContainerHighest,

@@ -24,11 +24,18 @@ class KomgaMappers {
 
   /// [json] is a Komga SeriesDto; title/summary/genres/status live in its
   /// nested `metadata` object (SeriesMetadataDto), not on SeriesDto itself.
-  static KsManga mangaFromJson(Map<String, dynamic> json) {
+  static KsManga mangaFromJson(
+    Map<String, dynamic> json, {
+    Uri Function(String path)? buildImageUrl,
+    Map<String, String>? coverHeaders,
+  }) {
     final metadata = json['metadata'] as Map<String, dynamic>? ?? {};
+    final id = json['id'] as String;
     return KsManga(
-      id: json['id'] as String,
+      id: id,
       title: (metadata['title'] as String?) ?? (json['name'] as String? ?? ''),
+      coverUrl: buildImageUrl?.call('/api/v1/series/$id/thumbnail').toString(),
+      coverHeaders: coverHeaders,
       description: metadata['summary'] as String?,
       genres:
           (metadata['genres'] as List?)?.map((g) => g.toString()).toList() ??

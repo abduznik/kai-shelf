@@ -12,11 +12,20 @@ class KavitaMappers {
   /// [json] is a Kavita SeriesDto; summary/genres live in a separate
   /// SeriesMetadataDto fetched via /api/Series/metadata, merged in here as
   /// [metadata] when available.
-  static KsManga mangaFromJson(Map<String, dynamic> json,
-      {Map<String, dynamic>? metadata}) {
+  static KsManga mangaFromJson(
+    Map<String, dynamic> json, {
+    Map<String, dynamic>? metadata,
+    Uri Function(String path)? buildImageUrl,
+    Map<String, String>? coverHeaders,
+  }) {
+    final id = json['id'].toString();
     return KsManga(
-      id: json['id'].toString(),
+      id: id,
       title: (json['name'] as String?) ?? '',
+      coverUrl: buildImageUrl
+          ?.call('/api/Image/series-cover?seriesId=$id')
+          .toString(),
+      coverHeaders: coverHeaders,
       description: metadata?['summary'] as String?,
       genres: (metadata?['genres'] as List?)
               ?.map((g) => (g['title'] ?? g).toString())

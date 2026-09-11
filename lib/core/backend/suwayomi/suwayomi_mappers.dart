@@ -29,11 +29,20 @@ class SuwayomiMappers {
     );
   }
 
-  static KsManga mangaFromJson(Map<String, dynamic> json) {
+  static KsManga mangaFromJson(
+    Map<String, dynamic> json, {
+    Uri Function(String path)? buildImageUrl,
+    Map<String, String>? coverHeaders,
+  }) {
+    final thumbnailPath = json['thumbnailUrl'] as String?;
     return KsManga(
       id: json['id'].toString(),
       title: json['title'] as String,
-      coverUrl: json['thumbnailUrl'] as String?,
+      coverUrl: thumbnailPath == null
+          ? null
+          : (buildImageUrl?.call(thumbnailPath) ?? Uri.parse(thumbnailPath))
+              .toString(),
+      coverHeaders: coverHeaders,
       description: json['description'] as String?,
       genres: (json['genre'] as List?)?.map((g) => g.toString()).toList() ??
           const [],

@@ -23,6 +23,7 @@ class KsManga {
     required this.id,
     required this.title,
     this.coverUrl,
+    this.coverHeaders,
     this.description,
     this.genres = const [],
     this.status = MangaStatus.unknown,
@@ -33,6 +34,12 @@ class KsManga {
   final String id;
   final String title;
   final String? coverUrl;
+
+  /// Auth headers required to fetch [coverUrl], for the same reason
+  /// [KsPage.extraHeaders] exists — confirmed against a live Suwayomi
+  /// BASIC_AUTH instance, where the thumbnail endpoint 401s without them
+  /// just like the GraphQL/page endpoints do.
+  final Map<String, String>? coverHeaders;
   final String? description;
   final List<String> genres;
   final MangaStatus status;

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:graphql/client.dart';
 import 'package:http/http.dart' as http;
 
@@ -8,9 +10,15 @@ import 'suwayomi_mappers.dart';
 import 'suwayomi_queries.dart';
 
 /// Suwayomi (Tachidesk) adapter — talks to a single GraphQL endpoint.
-/// Auth is a `login(username, password)` mutation returning an access/
-/// refresh JWT pair; the access token then rides as a Bearer header on
-/// every subsequent request.
+///
+/// Auth is HTTP Basic (server.authMode = BASIC_AUTH), sent on every
+/// request. This is deliberate, not a fallback: Suwayomi's other auth
+/// modes (SIMPLE_LOGIN/UI_LOGIN) mint short-lived JWTs tied to cookie-based
+/// sessions, which don't survive a stateless API client making independent
+/// requests — confirmed against a real server, where a token obtained from
+/// the login mutation was rejected as Unauthorized on the very next
+/// request. BASIC_AUTH has no session/expiry to manage and is the only
+/// mode Kai-Shelf supports.
 class SuwayomiBackend implements ServerBackend {
   SuwayomiBackend(ServerConnectionInfo connectionInfo,
       {http.Client? httpClient})
@@ -48,68 +56,46 @@ class SuwayomiBackend implements ServerBackend {
           'Suwayomi backend received non-Suwayomi credentials');
     }
 
-    // Some Suwayomi instances run with no auth configured at all; treat an
-    // empty username/password as "connect without authenticating." Validate
-    // against an @requireAuth-gated query (aboutServer is NOT gated, so it
-    // can't be used to confirm this — it would "succeed" even on servers
-    // that do require a login).
-    if ((credentials.username == null || credentials.username!.isEmpty) &&
-        (credentials.password == null || credentials.password!.isEmpty)) {
-      final unauthenticated = _connectionInfo.copyWith(extraHeaders: const {});
-      _client = _buildClient(unauthenticated);
-      final result = await _client.query(
-        QueryOptions(
-          document: gql(SuwayomiQueries.categoryListQuery),
-          fetchPolicy: FetchPolicy.noCache,
-        ),
-      );
-      if (result.hasException) {
-        return const AuthResult.failure(
-            'This server requires a username and password.');
-      }
-      _connectionInfo = unauthenticated;
-      return AuthResult.success(unauthenticated);
-    }
+    final hasUsername =
+        credentials.username != null && credentials.username!.isNotEmpty;
+    final hasPassword =
+        credentials.password != null && credentials.password!.isNotEmpty;
 
-    final result = await _client.mutate(
-      MutationOptions(
-        document: gql(SuwayomiQueries.loginMutation),
-        variables: {
-          'username': credentials.username ?? '',
-          'password': credentials.password ?? '',
-        },
+    final headers = <String, String>{};
+    if (hasUsername && hasPassword) {
+      final basicAuth = base64Encode(
+          utf8.encode('${credentials.username}:${credentials.password}'));
+      headers['Authorization'] = 'Basic $basicAuth';
+    }
+    // If only one of username/password is set, or neither, connect with no
+    // auth header — the validation query below will correctly reject that
+    // if the server actually requires BASIC_AUTH.
+
+    final candidate = _connectionInfo.copyWith(extraHeaders: headers);
+    _client = _buildClient(candidate);
+
+    // categories is @requireAuth-gated, unlike aboutServer, so this
+    // actually proves the credentials (or lack thereof) work — aboutServer
+    // would "succeed" even on a server that requires auth.
+    final result = await _client.query(
+      QueryOptions(
+        document: gql(SuwayomiQueries.categoryListQuery),
         fetchPolicy: FetchPolicy.noCache,
       ),
     );
 
     if (result.hasException) {
-      return AuthResult.failure(_exceptionMessage(result.exception));
+      if (headers.isEmpty) {
+        return const AuthResult.failure(
+            'This server requires a username and password.');
+      }
+      return const AuthResult.failure('Incorrect username or password.');
     }
 
-    final payload = result.data?['login'] as Map<String, dynamic>?;
-    final accessToken = payload?['accessToken'] as String?;
-    final refreshToken = payload?['refreshToken'] as String?;
-    if (accessToken == null) {
-      return const AuthResult.failure('Server did not return an access token');
-    }
-
-    final updated = _connectionInfo.copyWith(
-      sessionToken: accessToken,
-      refreshToken: refreshToken,
-      extraHeaders: {'Authorization': 'Bearer $accessToken'},
-    );
+    final updated = candidate;
     _client = _buildClient(updated);
     _connectionInfo = updated;
     return AuthResult.success(updated);
-  }
-
-  String _exceptionMessage(OperationException? exception) {
-    if (exception == null) return 'Unknown error';
-    final graphqlErrors = exception.graphqlErrors;
-    if (graphqlErrors.isNotEmpty) {
-      return graphqlErrors.map((e) => e.message).join('; ');
-    }
-    return exception.toString();
   }
 
   @override
@@ -146,13 +132,42 @@ class SuwayomiBackend implements ServerBackend {
   @override
   Future<List<KsManga>> getMangaList(
       {String? libraryId, String? searchQuery, int page = 0}) async {
+    // Category-scoped listing has to go through category(id:).mangas — see
+    // the doc comment on categoryMangaListQuery for why the manga-level
+    // categoryId filter can't be used here.
+    if (libraryId != null) {
+      final result = await _client.query(
+        QueryOptions(
+          document: gql(SuwayomiQueries.categoryMangaListQuery),
+          variables: {'categoryId': int.parse(libraryId)},
+          fetchPolicy: FetchPolicy.networkOnly,
+        ),
+      );
+      _throwIfAuthError(result);
+
+      final nodes =
+          result.data?['category']?['mangas']?['nodes'] as List? ?? [];
+      final mangaList = nodes
+          .map((n) => SuwayomiMappers.mangaFromJson(
+                n as Map<String, dynamic>,
+                buildImageUrl: buildImageUrl,
+                coverHeaders: _connectionInfo.extraHeaders.isEmpty
+                    ? null
+                    : _connectionInfo.extraHeaders,
+              ))
+          .toList();
+
+      if (searchQuery == null || searchQuery.isEmpty) return mangaList;
+      final needle = searchQuery.toLowerCase();
+      return mangaList
+          .where((m) => m.title.toLowerCase().contains(needle))
+          .toList();
+    }
+
     final result = await _client.query(
       QueryOptions(
         document: gql(SuwayomiQueries.mangaListQuery),
-        variables: {
-          'categoryId': libraryId != null ? int.parse(libraryId) : null,
-          'searchQuery': searchQuery,
-        },
+        variables: {'searchQuery': searchQuery},
         fetchPolicy: FetchPolicy.networkOnly,
       ),
     );
@@ -160,7 +175,13 @@ class SuwayomiBackend implements ServerBackend {
 
     final nodes = result.data?['mangas']?['nodes'] as List? ?? [];
     return nodes
-        .map((n) => SuwayomiMappers.mangaFromJson(n as Map<String, dynamic>))
+        .map((n) => SuwayomiMappers.mangaFromJson(
+              n as Map<String, dynamic>,
+              buildImageUrl: buildImageUrl,
+              coverHeaders: _connectionInfo.extraHeaders.isEmpty
+                  ? null
+                  : _connectionInfo.extraHeaders,
+            ))
         .toList();
   }
 
@@ -175,7 +196,12 @@ class SuwayomiBackend implements ServerBackend {
     );
     _throwIfAuthError(result);
     return SuwayomiMappers.mangaFromJson(
-        result.data!['manga'] as Map<String, dynamic>);
+      result.data!['manga'] as Map<String, dynamic>,
+      buildImageUrl: buildImageUrl,
+      coverHeaders: _connectionInfo.extraHeaders.isEmpty
+          ? null
+          : _connectionInfo.extraHeaders,
+    );
   }
 
   @override
@@ -197,22 +223,26 @@ class SuwayomiBackend implements ServerBackend {
 
   @override
   Future<List<KsPage>> getPages(String chapterId) async {
-    final result = await _client.query(
-      QueryOptions(
-        document: gql(SuwayomiQueries.chapterPagesQuery),
-        variables: {'id': int.parse(chapterId)},
-        fetchPolicy: FetchPolicy.networkOnly,
+    // Suwayomi fetches pages lazily; this mutation both triggers that
+    // fetch and returns the correct page paths directly, so there's no
+    // need to (and, per the doc comment on the query, no reliable way to)
+    // build page URLs by hand from mangaId/chapter-number.
+    final result = await _client.mutate(
+      MutationOptions(
+        document: gql(SuwayomiQueries.fetchChapterPagesMutation),
+        variables: {'chapterId': int.parse(chapterId)},
+        fetchPolicy: FetchPolicy.noCache,
       ),
     );
     _throwIfAuthError(result);
 
-    final pageCount = result.data?['chapter']?['pageCount'] as int? ?? 0;
+    final pagePaths =
+        result.data?['fetchChapterPages']?['pages'] as List? ?? [];
     return List.generate(
-      pageCount,
+      pagePaths.length,
       (i) => KsPage(
         index: i,
-        imageUrl:
-            buildImageUrl('/api/v1/chapter/$chapterId/page/$i').toString(),
+        imageUrl: buildImageUrl(pagePaths[i] as String).toString(),
         extraHeaders: _connectionInfo.extraHeaders.isEmpty
             ? null
             : _connectionInfo.extraHeaders,

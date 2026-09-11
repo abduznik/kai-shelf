@@ -105,7 +105,11 @@ class KomgaBackend implements ServerBackend {
     final body = jsonDecode(response.body) as Map<String, dynamic>;
     final content = body['content'] as List;
     return content
-        .map((json) => KomgaMappers.mangaFromJson(json as Map<String, dynamic>))
+        .map((json) => KomgaMappers.mangaFromJson(
+              json as Map<String, dynamic>,
+              buildImageUrl: buildImageUrl,
+              coverHeaders: _authHeaders.isEmpty ? null : _authHeaders,
+            ))
         .toList();
   }
 
@@ -115,7 +119,10 @@ class KomgaBackend implements ServerBackend {
         headers: _authHeaders);
     _throwIfAuthError(response);
     return KomgaMappers.mangaFromJson(
-        jsonDecode(response.body) as Map<String, dynamic>);
+      jsonDecode(response.body) as Map<String, dynamic>,
+      buildImageUrl: buildImageUrl,
+      coverHeaders: _authHeaders.isEmpty ? null : _authHeaders,
+    );
   }
 
   @override
