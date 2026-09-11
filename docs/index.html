@@ -72,6 +72,20 @@
     * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
   }
 
+  /* ---------- scroll reveal ---------- */
+  .reveal {
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { opacity: 1; transform: none; transition: none; }
+  }
+
   body {
     margin: 0;
     background: var(--paper);
@@ -444,11 +458,11 @@
 <section class="showcase" id="showcase">
   <div class="wrap">
     <div class="shots">
-      <div class="shot-card">
+      <div class="shot-card reveal">
         <img src="screenshots/library.jpg" alt="Kai-Shelf library grid showing manga covers" loading="lazy">
         <div class="shot-caption">Library — browse your whole collection, synced from your server</div>
       </div>
-      <div class="shot-card">
+      <div class="shot-card reveal" style="transition-delay: 0.1s">
         <img src="screenshots/manga-detail.jpg" alt="Kai-Shelf manga detail screen with chapter list, sort toggle, and batch download menu" loading="lazy">
         <div class="shot-caption">Manga detail — chapter list with read status, sort order, and batch downloads</div>
       </div>
@@ -463,27 +477,27 @@
       <h2>Built for reading, not for accounts</h2>
     </div>
     <div class="feature-grid">
-      <div class="feature-card">
+      <div class="feature-card reveal">
         <h3>Auto server detection</h3>
         <p>Paste a server URL and Kai-Shelf figures out whether it's talking to Suwayomi, Komga, or Kavita — no manual setup.</p>
       </div>
-      <div class="feature-card">
+      <div class="feature-card reveal" style="transition-delay: 0.06s">
         <h3>Offline downloads</h3>
         <p>Queue single chapters or batch-download the next 5, next 10, or an entire series. Reading auto-caches upcoming pages in the background.</p>
       </div>
-      <div class="feature-card">
+      <div class="feature-card reveal" style="transition-delay: 0.12s">
         <h3>Paged &amp; webtoon reading</h3>
         <p>Switch between traditional paged reading and continuous vertical scroll, with reading progress synced back to your server.</p>
       </div>
-      <div class="feature-card">
+      <div class="feature-card reveal" style="transition-delay: 0.02s">
         <h3>Discover new titles</h3>
         <p>Search installed Suwayomi sources right from the app and add new manga to your library without leaving Kai-Shelf.</p>
       </div>
-      <div class="feature-card">
+      <div class="feature-card reveal" style="transition-delay: 0.08s">
         <h3>Chapter management</h3>
         <p>Sort chapters ascending or descending, and mark any chapter read or unread manually — auto-marking still happens when you finish a chapter.</p>
       </div>
-      <div class="feature-card">
+      <div class="feature-card reveal" style="transition-delay: 0.14s">
         <h3>No accounts, no telemetry</h3>
         <p>Kai-Shelf talks directly to the server you already run. Nothing is collected, nothing is proxied.</p>
       </div>
@@ -497,7 +511,7 @@
       <span class="eyebrow">Compatibility</span>
       <h2>Supported servers</h2>
     </div>
-    <div class="server-table">
+    <div class="server-table reveal">
       <div class="server-row">
         <div>
           <div class="server-name">Suwayomi</div>
@@ -536,6 +550,24 @@
 </footer>
 
 <script>
+(function () {
+  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var revealEls = document.querySelectorAll(".reveal");
+  if (reduceMotion || !("IntersectionObserver" in window)) {
+    revealEls.forEach(function (el) { el.classList.add("is-visible"); });
+  } else {
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("is-visible");
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.15, rootMargin: "0px 0px -40px 0px" });
+    revealEls.forEach(function (el) { observer.observe(el); });
+  }
+})();
+
 (function () {
   var REPO_API = "https://api.github.com/repos/abduznik/kai-shelf";
   var LATEST_API = REPO_API + "/releases/latest";
