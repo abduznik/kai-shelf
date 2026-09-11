@@ -36,14 +36,25 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Read app version
+        id: version
+        shell: bash
+        run: |
+          version=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Build APK
         run: flutter build apk --${{ inputs.build_mode }}
+
+      - name: Rename APK
+        shell: bash
+        run: mv build/app/outputs/flutter-apk/app-${{ inputs.build_mode }}.apk build/app/outputs/flutter-apk/kai-shelf-${{ steps.version.outputs.version }}-${{ inputs.build_mode }}.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: kai-shelf-android-${{ inputs.build_mode }}
-          path: build/app/outputs/flutter-apk/*.apk
+          path: build/app/outputs/flutter-apk/kai-shelf-${{ steps.version.outputs.version }}-${{ inputs.build_mode }}.apk
 
   build-windows:
     name: Windows
@@ -59,18 +70,25 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Read app version
+        id: version
+        shell: bash
+        run: |
+          version=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Build Windows
         run: flutter build windows --${{ inputs.build_mode }}
 
       - name: Zip build output
         shell: pwsh
-        run: Compress-Archive -Path "build/windows/x64/runner/${{ inputs.build_mode == 'debug' && 'Debug' || 'Release' }}/*" -DestinationPath "kai-shelf-windows-${{ inputs.build_mode }}.zip"
+        run: Compress-Archive -Path "build/windows/x64/runner/${{ inputs.build_mode == 'debug' && 'Debug' || 'Release' }}/*" -DestinationPath "kai-shelf-${{ steps.version.outputs.version }}-windows-${{ inputs.build_mode }}.zip"
 
       - name: Upload Windows build
         uses: actions/upload-artifact@v4
         with:
           name: kai-shelf-windows-${{ inputs.build_mode }}
-          path: kai-shelf-windows-${{ inputs.build_mode }}.zip
+          path: kai-shelf-${{ steps.version.outputs.version }}-windows-${{ inputs.build_mode }}.zip
 
   build-web:
     name: Web
@@ -86,14 +104,20 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      - name: Read app version
+        id: version
+        run: |
+          version=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Build web
         run: flutter build web --${{ inputs.build_mode }}
 
       - name: Zip build output
-        run: (cd build/web && zip -r ../../kai-shelf-web-${{ inputs.build_mode }}.zip .)
+        run: (cd build/web && zip -r ../../kai-shelf-${{ steps.version.outputs.version }}-web-${{ inputs.build_mode }}.zip .)
 
       - name: Upload web build
         uses: actions/upload-artifact@v4
         with:
           name: kai-shelf-web-${{ inputs.build_mode }}
-          path: kai-shelf-web-${{ inputs.build_mode }}.zip
+          path: kai-shelf-${{ steps.version.outputs.version }}-web-${{ inputs.build_mode }}.zip
