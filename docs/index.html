@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kai-Shelf — self-hosted manga &amp; comics reader</title>
+<meta name="description" content="A cross-platform Flutter reader for self-hosted manga servers — Suwayomi, Komga, and Kavita.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0b0e14;
+    --paper: #f7f5f0;
+    --paper-2: #efece3;
+    --text: #1b1c1f;
+    --text-dim: #6b6f78;
+    --accent: #c8431f;
+    --accent-ink: #ffffff;
+    --steel: #3a4a6b;
+    --border: #dfdacb;
+    --card: #ffffff;
+    --live-bg: #e3f0e6;
+    --live-text: #1f6b3a;
+    --soon-bg: #f2e9d6;
+    --soon-text: #92600f;
+    --shadow: 0 1px 2px rgba(20,16,8,0.04), 0 12px 32px rgba(20,16,8,0.07);
+  }
+
+  :root:not([data-theme="light"]) {
+    @media (prefers-color-scheme: dark) {
+      --paper: #0b0e14;
+      --paper-2: #12161f;
+      --text: #ece9e2;
+      --text-dim: #8b8f9a;
+      --accent: #ff7a4d;
+      --accent-ink: #12100c;
+      --steel: #93a8d6;
+      --border: #262b38;
+      --card: #12161f;
+      --live-bg: #163325;
+      --live-text: #63d68d;
+      --soon-bg: #33280f;
+      --soon-text: #f0b859;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 12px 32px rgba(0,0,0,0.4);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #0b0e14;
+    --paper-2: #12161f;
+    --text: #ece9e2;
+    --text-dim: #8b8f9a;
+    --accent: #ff7a4d;
+    --accent-ink: #12100c;
+    --steel: #93a8d6;
+    --border: #262b38;
+    --card: #12161f;
+    --live-bg: #163325;
+    --live-text: #63d68d;
+    --soon-bg: #33280f;
+    --soon-text: #f0b859;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 12px 32px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; }
+  }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--text);
+    font-family: "Inter", -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: inherit; }
+
+  .wrap {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 28px;
+  }
+
+  /* ---------- nav ---------- */
+  nav {
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    backdrop-filter: blur(10px);
+    z-index: 10;
+  }
+  nav .wrap {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+  }
+  .wordmark {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 700;
+    font-size: 1.25rem;
+    letter-spacing: -0.01em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-decoration: none;
+  }
+  .wordmark .dot { color: var(--accent); }
+  .nav-links {
+    display: flex;
+    gap: 28px;
+    font-size: 0.92rem;
+    font-weight: 500;
+  }
+  .nav-links a { text-decoration: none; color: var(--text-dim); transition: color 0.15s; }
+  .nav-links a:hover { color: var(--accent); }
+
+  /* ---------- hero ---------- */
+  header.hero {
+    padding: 88px 0 64px;
+    text-align: center;
+  }
+  .eyebrow {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  h1 {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 700;
+    font-size: clamp(2.4rem, 6vw, 3.6rem);
+    line-height: 1.05;
+    margin: 14px 0 18px;
+    text-wrap: balance;
+    letter-spacing: -0.015em;
+  }
+  h1 .accent { color: var(--accent); }
+  .tagline {
+    max-width: 56ch;
+    margin: 0 auto;
+    color: var(--text-dim);
+    font-size: 1.15rem;
+  }
+
+  .cta-row {
+    margin-top: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+  }
+  .btn-download {
+    font-family: "Inter", sans-serif;
+    font-weight: 600;
+    font-size: 1.05rem;
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: none;
+    padding: 16px 34px;
+    border-radius: 10px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: var(--shadow);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    text-decoration: none;
+  }
+  .btn-download:hover { transform: translateY(-1px); }
+  .btn-download svg { width: 18px; height: 18px; flex-shrink: 0; }
+  .cta-sub {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.82rem;
+    color: var(--text-dim);
+  }
+  .cta-sub a { text-decoration: underline; text-decoration-color: var(--border); }
+  .cta-sub a:hover { color: var(--accent); }
+
+  .platform-row {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+  }
+  .platform-pill {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.78rem;
+    font-weight: 500;
+    padding: 6px 13px;
+    border-radius: 999px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+
+  /* ---------- showcase ---------- */
+  section.showcase {
+    padding: 20px 0 80px;
+  }
+  .shots {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .shot-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .shot-card img {
+    width: 100%;
+    display: block;
+  }
+  .shot-caption {
+    padding: 14px 20px;
+    font-size: 0.92rem;
+    color: var(--text-dim);
+    border-top: 1px solid var(--border);
+    font-family: "JetBrains Mono", monospace;
+  }
+
+  /* ---------- features ---------- */
+  section.features {
+    padding: 40px 0 90px;
+    border-top: 1px solid var(--border);
+  }
+  .section-head {
+    text-align: center;
+    margin-bottom: 44px;
+  }
+  .section-head .eyebrow { display: block; margin-bottom: 10px; }
+  .section-head h2 {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-weight: 700;
+    font-size: clamp(1.7rem, 3.5vw, 2.2rem);
+    margin: 0;
+    text-wrap: balance;
+  }
+  .feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 20px;
+  }
+  .feature-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 22px 24px;
+  }
+  .feature-card h3 {
+    font-family: "Bricolage Grotesque", sans-serif;
+    font-size: 1.05rem;
+    margin: 0 0 8px;
+    font-weight: 600;
+  }
+  .feature-card p {
+    margin: 0;
+    color: var(--text-dim);
+    font-size: 0.93rem;
+  }
+
+  /* ---------- servers ---------- */
+  section.servers {
+    padding: 0 0 90px;
+  }
+  .server-table {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+  }
+  .server-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--border);
+    gap: 16px;
+  }
+  .server-row:last-child { border-bottom: none; }
+  .server-name {
+    font-weight: 600;
+    font-family: "Bricolage Grotesque", sans-serif;
+  }
+  .server-note {
+    color: var(--text-dim);
+    font-size: 0.88rem;
+    margin-top: 2px;
+  }
+  .status-badge {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    padding: 5px 11px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .status-live { background: var(--live-bg); color: var(--live-text); }
+  .status-soon { background: var(--soon-bg); color: var(--soon-text); }
+
+  /* ---------- footer ---------- */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 40px 0 56px;
+  }
+  footer .wrap {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  footer .foot-links {
+    display: flex;
+    gap: 22px;
+    font-size: 0.88rem;
+  }
+  footer .foot-links a { text-decoration: none; color: var(--text-dim); }
+  footer .foot-links a:hover { color: var(--accent); }
+  footer .copy {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+  }
+
+  @media (max-width: 600px) {
+    header.hero { padding: 64px 0 48px; }
+    .nav-links { gap: 16px; font-size: 0.85rem; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <a class="wordmark" href="#top">kai<span class="dot">-</span>shelf</a>
+    <div class="nav-links">
+      <a href="#showcase">Screenshots</a>
+      <a href="#features">Features</a>
+      <a href="#servers">Servers</a>
+      <a href="https://github.com/abduznik/kai-shelf">GitHub</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <span class="eyebrow">Free &amp; open source</span>
+    <h1>Your manga server,<br><span class="accent">wherever you read</span></h1>
+    <p class="tagline">
+      Kai-Shelf is a cross-platform reader for the manga &amp; comics server you
+      already self-host. Browse your library, read offline, and keep progress
+      in sync — no accounts, no telemetry, just your server.
+    </p>
+
+    <div class="cta-row">
+      <a class="btn-download" id="download-btn" href="https://github.com/abduznik/kai-shelf/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <span id="download-label">Download for your platform</span>
+      </a>
+      <span class="cta-sub" id="download-sub">detecting your platform…</span>
+    </div>
+
+    <div class="platform-row">
+      <span class="platform-pill">Android · APK</span>
+      <span class="platform-pill">Windows · desktop</span>
+      <span class="platform-pill">Web · browser</span>
+    </div>
+  </div>
+</header>
+
+<section class="showcase" id="showcase">
+  <div class="wrap">
+    <div class="shots">
+      <div class="shot-card">
+        <img src="screenshots/library.jpg" alt="Kai-Shelf library grid showing manga covers" loading="lazy">
+        <div class="shot-caption">Library — browse your whole collection, synced from your server</div>
+      </div>
+      <div class="shot-card">
+        <img src="screenshots/manga-detail.jpg" alt="Kai-Shelf manga detail screen with chapter list, sort toggle, and batch download menu" loading="lazy">
+        <div class="shot-caption">Manga detail — chapter list with read status, sort order, and batch downloads</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="features" id="features">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">What it does</span>
+      <h2>Built for reading, not for accounts</h2>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <h3>Auto server detection</h3>
+        <p>Paste a server URL and Kai-Shelf figures out whether it's talking to Suwayomi, Komga, or Kavita — no manual setup.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Offline downloads</h3>
+        <p>Queue single chapters or batch-download the next 5, next 10, or an entire series. Reading auto-caches upcoming pages in the background.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Paged &amp; webtoon reading</h3>
+        <p>Switch between traditional paged reading and continuous vertical scroll, with reading progress synced back to your server.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Discover new titles</h3>
+        <p>Search installed Suwayomi sources right from the app and add new manga to your library without leaving Kai-Shelf.</p>
+      </div>
+      <div class="feature-card">
+        <h3>Chapter management</h3>
+        <p>Sort chapters ascending or descending, and mark any chapter read or unread manually — auto-marking still happens when you finish a chapter.</p>
+      </div>
+      <div class="feature-card">
+        <h3>No accounts, no telemetry</h3>
+        <p>Kai-Shelf talks directly to the server you already run. Nothing is collected, nothing is proxied.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="servers" id="servers">
+  <div class="wrap">
+    <div class="section-head">
+      <span class="eyebrow">Compatibility</span>
+      <h2>Supported servers</h2>
+    </div>
+    <div class="server-table">
+      <div class="server-row">
+        <div>
+          <div class="server-name">Suwayomi</div>
+          <div class="server-note">GraphQL API · library, reader, downloads, and source discovery all verified against a live server</div>
+        </div>
+        <span class="status-badge status-live">LIVE</span>
+      </div>
+      <div class="server-row">
+        <div>
+          <div class="server-name">Komga</div>
+          <div class="server-note">REST API adapter implemented — not yet confirmed against a live instance</div>
+        </div>
+        <span class="status-badge status-soon">IN PROGRESS</span>
+      </div>
+      <div class="server-row">
+        <div>
+          <div class="server-name">Kavita</div>
+          <div class="server-note">REST API adapter implemented — not yet confirmed against a live instance</div>
+        </div>
+        <span class="status-badge status-soon">IN PROGRESS</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span class="copy">kai-shelf · MIT licensed</span>
+    <div class="foot-links">
+      <a href="https://github.com/abduznik/kai-shelf">Repository</a>
+      <a href="https://github.com/abduznik/kai-shelf/releases">Releases</a>
+      <a href="https://github.com/abduznik/kai-shelf/issues">Issues</a>
+      <a href="https://github.com/sponsors/abduznik">Sponsor</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var API_URL = "https://api.github.com/repos/abduznik/kai-shelf/releases/latest";
+  var RELEASES_URL = "https://github.com/abduznik/kai-shelf/releases/latest";
+  var btn = document.getElementById("download-btn");
+  var label = document.getElementById("download-label");
+  var sub = document.getElementById("download-sub");
+
+  function detectPlatform() {
+    var ua = navigator.userAgent || "";
+    if (/android/i.test(ua)) return "android";
+    if (/windows/i.test(ua)) return "windows";
+    return "web";
+  }
+
+  function pickAsset(assets, platform) {
+    var patterns = {
+      android: /\.apk$/i,
+      windows: /windows.*\.zip$/i,
+      web: /web.*\.zip$/i
+    };
+    var re = patterns[platform];
+    for (var i = 0; i < assets.length; i++) {
+      if (re.test(assets[i].name)) return assets[i];
+    }
+    return null;
+  }
+
+  var platform = detectPlatform();
+  var platformLabel = { android: "Android", windows: "Windows", web: "Web" }[platform];
+
+  fetch(API_URL, { headers: { Accept: "application/vnd.github+json" } })
+    .then(function (res) {
+      if (!res.ok) throw new Error("release lookup failed");
+      return res.json();
+    })
+    .then(function (release) {
+      var asset = pickAsset(release.assets || [], platform);
+      if (asset) {
+        btn.href = asset.browser_download_url;
+        label.textContent = "Download for " + platformLabel + " (" + release.tag_name + ")";
+        sub.innerHTML = "or see all builds on the <a href=\"" + RELEASES_URL + "\">Releases page</a>";
+      } else {
+        btn.href = RELEASES_URL;
+        label.textContent = "Get " + release.tag_name + " on GitHub";
+        sub.textContent = "opens the Releases page — pick your platform there";
+      }
+    })
+    .catch(function () {
+      btn.href = RELEASES_URL;
+      label.textContent = "Download on GitHub";
+      sub.textContent = "opens the Releases page";
+    });
+})();
+</script>
+
+</body>
+</html>
