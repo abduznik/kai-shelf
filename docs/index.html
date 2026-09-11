@@ -24,7 +24,7 @@
     --live-text: #1f6b3a;
     --soon-bg: #f2e9d6;
     --soon-text: #92600f;
-    --shadow: 0 1px 2px rgba(20,16,8,0.04), 0 12px 32px rgba(20,16,8,0.07);
+    --shadow: 0 1px 0 rgba(20,16,8,0.06);
   }
 
   :root:not([data-theme="light"]) {
@@ -42,7 +42,7 @@
       --live-text: #63d68d;
       --soon-bg: #33280f;
       --soon-text: #f0b859;
-      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 12px 32px rgba(0,0,0,0.4);
+      --shadow: 0 1px 0 rgba(0,0,0,0.5);
     }
   }
 
@@ -60,7 +60,7 @@
     --live-text: #63d68d;
     --soon-bg: #33280f;
     --soon-text: #f0b859;
-    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 12px 32px rgba(0,0,0,0.4);
+    --shadow: 0 1px 0 rgba(0,0,0,0.5);
   }
 
   * { box-sizing: border-box; }
@@ -94,7 +94,7 @@
     border-bottom: 1px solid var(--border);
     position: sticky;
     top: 0;
-    background: color-mix(in srgb, var(--paper) 88%, transparent);
+    background: color-mix(in srgb, var(--paper) 95%, transparent);
     backdrop-filter: blur(10px);
     z-index: 10;
   }
@@ -167,18 +167,17 @@
     font-size: 1.05rem;
     background: var(--accent);
     color: var(--accent-ink);
-    border: none;
-    padding: 16px 34px;
-    border-radius: 10px;
+    border: 1px solid var(--accent);
+    padding: 15px 32px;
+    border-radius: 3px;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    box-shadow: var(--shadow);
-    transition: transform 0.15s ease, box-shadow 0.15s ease;
+    transition: opacity 0.12s ease;
     text-decoration: none;
   }
-  .btn-download:hover { transform: translateY(-1px); }
+  .btn-download:hover { opacity: 0.88; }
   .btn-download svg { width: 18px; height: 18px; flex-shrink: 0; }
   .cta-sub {
     font-family: "JetBrains Mono", monospace;
@@ -191,20 +190,71 @@
   .platform-row {
     display: flex;
     justify-content: center;
-    gap: 10px;
-    margin-top: 24px;
+    gap: 0;
+    margin-top: 28px;
     flex-wrap: wrap;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
   }
-  .platform-pill {
+  .platform-btn {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.8rem;
+    font-weight: 500;
+    padding: 10px 18px;
+    background: var(--card);
+    border: none;
+    border-right: 1px solid var(--border);
+    color: var(--text-dim);
+    text-decoration: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    transition: color 0.12s ease, background 0.12s ease;
+  }
+  .platform-btn:last-child { border-right: none; }
+  .platform-btn:hover { color: var(--text); background: var(--paper-2); }
+  .platform-btn .tick { color: var(--accent); font-weight: 700; }
+
+  .older-releases {
+    margin-top: 14px;
     font-family: "JetBrains Mono", monospace;
     font-size: 0.78rem;
-    font-weight: 500;
-    padding: 6px 13px;
-    border-radius: 999px;
-    background: var(--card);
-    border: 1px solid var(--border);
-    color: var(--text-dim);
   }
+  .older-releases summary {
+    cursor: pointer;
+    color: var(--text-dim);
+    list-style: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .older-releases summary::-webkit-details-marker { display: none; }
+  .older-releases summary:hover { color: var(--accent); }
+  .older-releases summary::after { content: "▾"; font-size: 0.7em; }
+  .older-releases[open] summary::after { content: "▴"; }
+  .release-list {
+    margin-top: 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    background: var(--card);
+    max-width: 340px;
+    text-align: left;
+  }
+  .release-list a {
+    display: flex;
+    justify-content: space-between;
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    text-decoration: none;
+    color: var(--text);
+    font-size: 0.82rem;
+  }
+  .release-list a:last-child { border-bottom: none; }
+  .release-list a:hover { background: var(--paper-2); }
+  .release-list .rl-date { color: var(--text-dim); }
+  .release-list .rl-empty { padding: 12px 14px; color: var(--text-dim); }
 
   /* ---------- showcase ---------- */
   section.showcase {
@@ -218,9 +268,8 @@
   .shot-card {
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 14px;
+    border-radius: 4px;
     overflow: hidden;
-    box-shadow: var(--shadow);
   }
   .shot-card img {
     width: 100%;
@@ -259,7 +308,7 @@
   .feature-card {
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 4px;
     padding: 22px 22px 24px;
   }
   .feature-card h3 {
@@ -281,9 +330,8 @@
   .server-table {
     background: var(--card);
     border: 1px solid var(--border);
-    border-radius: 12px;
+    border-radius: 4px;
     overflow: hidden;
-    box-shadow: var(--shadow);
   }
   .server-row {
     display: grid;
@@ -308,8 +356,8 @@
     font-size: 0.76rem;
     font-weight: 600;
     letter-spacing: 0.04em;
-    padding: 5px 11px;
-    border-radius: 999px;
+    padding: 4px 10px;
+    border-radius: 3px;
     white-space: nowrap;
   }
   .status-live { background: var(--live-bg); color: var(--live-text); }
@@ -373,15 +421,22 @@
     <div class="cta-row">
       <a class="btn-download" id="download-btn" href="https://github.com/abduznik/kai-shelf/releases/latest">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-        <span id="download-label">Download for your platform</span>
+        <span id="download-label">Download</span>
       </a>
       <span class="cta-sub" id="download-sub">detecting your platform…</span>
-    </div>
 
-    <div class="platform-row">
-      <span class="platform-pill">Android · APK</span>
-      <span class="platform-pill">Windows · desktop</span>
-      <span class="platform-pill">Web · browser</span>
+      <div class="platform-row" id="platform-row">
+        <a class="platform-btn" id="plat-android" href="https://github.com/abduznik/kai-shelf/releases/latest"><span class="tick" id="tick-android"></span>Android</a>
+        <a class="platform-btn" id="plat-windows" href="https://github.com/abduznik/kai-shelf/releases/latest"><span class="tick" id="tick-windows"></span>Windows</a>
+        <a class="platform-btn" id="plat-web" href="https://github.com/abduznik/kai-shelf/releases/latest"><span class="tick" id="tick-web"></span>Web (in-browser)</a>
+      </div>
+
+      <details class="older-releases">
+        <summary>Looking for an older version?</summary>
+        <div class="release-list" id="release-list">
+          <a class="rl-empty">loading releases…</a>
+        </div>
+      </details>
     </div>
   </div>
 </header>
@@ -482,56 +537,106 @@
 
 <script>
 (function () {
-  var API_URL = "https://api.github.com/repos/abduznik/kai-shelf/releases/latest";
+  var REPO_API = "https://api.github.com/repos/abduznik/kai-shelf";
+  var LATEST_API = REPO_API + "/releases/latest";
+  var RELEASES_API = REPO_API + "/releases";
   var RELEASES_URL = "https://github.com/abduznik/kai-shelf/releases/latest";
+
   var btn = document.getElementById("download-btn");
   var label = document.getElementById("download-label");
   var sub = document.getElementById("download-sub");
 
-  function detectPlatform() {
+  // "web" is a build target, not an operating system — an unrecognized OS
+  // (macOS, Linux, iOS, ...) has no native build here, so it must not be
+  // silently treated as if the web build were "its" platform.
+  function detectOs() {
     var ua = navigator.userAgent || "";
     if (/android/i.test(ua)) return "android";
     if (/windows/i.test(ua)) return "windows";
-    return "web";
+    return null;
   }
 
+  var ASSET_PATTERNS = {
+    android: /\.apk$/i,
+    windows: /windows.*\.zip$/i,
+    web: /web.*\.zip$/i
+  };
+
   function pickAsset(assets, platform) {
-    var patterns = {
-      android: /\.apk$/i,
-      windows: /windows.*\.zip$/i,
-      web: /web.*\.zip$/i
-    };
-    var re = patterns[platform];
+    var re = ASSET_PATTERNS[platform];
     for (var i = 0; i < assets.length; i++) {
       if (re.test(assets[i].name)) return assets[i];
     }
     return null;
   }
 
-  var platform = detectPlatform();
-  var platformLabel = { android: "Android", windows: "Windows", web: "Web" }[platform];
+  var detectedOs = detectOs();
 
-  fetch(API_URL, { headers: { Accept: "application/vnd.github+json" } })
+  fetch(LATEST_API, { headers: { Accept: "application/vnd.github+json" } })
     .then(function (res) {
       if (!res.ok) throw new Error("release lookup failed");
       return res.json();
     })
     .then(function (release) {
-      var asset = pickAsset(release.assets || [], platform);
-      if (asset) {
-        btn.href = asset.browser_download_url;
-        label.textContent = "Download for " + platformLabel + " (" + release.tag_name + ")";
-        sub.innerHTML = "or see all builds on the <a href=\"" + RELEASES_URL + "\">Releases page</a>";
+      var assets = release.assets || [];
+
+      ["android", "windows", "web"].forEach(function (platform) {
+        var asset = pickAsset(assets, platform);
+        var anchor = document.getElementById("plat-" + platform);
+        if (asset) anchor.href = asset.browser_download_url;
+        if (platform === detectedOs) {
+          document.getElementById("tick-" + platform).textContent = "✓ ";
+        }
+      });
+
+      if (detectedOs) {
+        var mainAsset = pickAsset(assets, detectedOs);
+        var osLabel = { android: "Android", windows: "Windows" }[detectedOs];
+        if (mainAsset) {
+          btn.href = mainAsset.browser_download_url;
+          label.textContent = "Download for " + osLabel + " (" + release.tag_name + ")";
+          sub.textContent = "detected " + osLabel + " — or pick a platform below";
+        } else {
+          btn.href = RELEASES_URL;
+          label.textContent = "Get " + release.tag_name + " on GitHub";
+          sub.textContent = "no " + osLabel + " build in this release — see the platforms below";
+        }
       } else {
+        // Desktop non-Windows, mobile non-Android, or unrecognized UA:
+        // there's no native build to guess at, so send to the Releases
+        // page rather than defaulting to the web build unasked.
         btn.href = RELEASES_URL;
         label.textContent = "Get " + release.tag_name + " on GitHub";
-        sub.textContent = "opens the Releases page — pick your platform there";
+        sub.textContent = "no native build detected for your OS — pick a platform below";
       }
     })
     .catch(function () {
       btn.href = RELEASES_URL;
       label.textContent = "Download on GitHub";
       sub.textContent = "opens the Releases page";
+    });
+
+  var releaseList = document.getElementById("release-list");
+  fetch(RELEASES_API + "?per_page=8", { headers: { Accept: "application/vnd.github+json" } })
+    .then(function (res) {
+      if (!res.ok) throw new Error("release list failed");
+      return res.json();
+    })
+    .then(function (releases) {
+      if (!releases.length) {
+        releaseList.innerHTML = "<a class=\"rl-empty\">no releases found</a>";
+        return;
+      }
+      releaseList.innerHTML = releases.map(function (r) {
+        var date = r.published_at ? r.published_at.slice(0, 10) : "";
+        return "<a href=\"" + r.html_url + "\">" +
+          "<span>" + r.tag_name + "</span>" +
+          "<span class=\"rl-date\">" + date + "</span>" +
+          "</a>";
+      }).join("");
+    })
+    .catch(function () {
+      releaseList.innerHTML = "<a class=\"rl-empty\" href=\"" + RELEASES_URL + "\">see all releases on GitHub</a>";
     });
 })();
 </script>
