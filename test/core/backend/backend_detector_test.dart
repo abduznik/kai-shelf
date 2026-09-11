@@ -87,7 +87,10 @@ void main() {
       });
 
       final detector = BackendDetector(client: client);
-      final result = await detector.detect('example.com:4567');
+      // Explicit http:// so this test exercises the redirect-follow path
+      // directly, rather than the https-first probe order picking it up
+      // without a redirect ever happening.
+      final result = await detector.detect('http://example.com:4567');
 
       expect(result, isNotNull);
       expect(result!.type, BackendType.suwayomi);
@@ -96,6 +99,53 @@ void main() {
       // GraphQL call via SuwayomiBackend would hit this same
       // un-followed-POST-redirect problem again.
       expect(result.normalizedBaseUrl.scheme, 'https');
+    });
+
+    test('tries https:// before http:// when the user gives no scheme',
+        () async {
+      var httpsAttempted = false;
+      var httpAttempted = false;
+      final client = MockClient((request) async {
+        if (request.url.scheme == 'https' &&
+            request.url.path == '/api/graphql') {
+          httpsAttempted = true;
+          return http.Response('Unauthorized', 401,
+              headers: {'content-type': 'text/plain'});
+        }
+        if (request.url.scheme == 'http' &&
+            request.url.path == '/api/graphql') {
+          httpAttempted = true;
+        }
+        return http.Response('not found', 404);
+      });
+
+      final detector = BackendDetector(client: client);
+      final result = await detector.detect('example.com:4567');
+
+      expect(result, isNotNull);
+      expect(result!.type, BackendType.suwayomi);
+      expect(result.normalizedBaseUrl.scheme, 'https');
+      expect(httpsAttempted, isTrue);
+      expect(httpAttempted, isFalse);
+    });
+
+    test('falls back to http:// when https:// has nothing at that host',
+        () async {
+      final client = MockClient((request) async {
+        if (request.url.scheme == 'http' &&
+            request.url.path == '/api/graphql') {
+          return http.Response('Unauthorized', 401,
+              headers: {'content-type': 'text/plain'});
+        }
+        return http.Response('not found', 404);
+      });
+
+      final detector = BackendDetector(client: client);
+      final result = await detector.detect('example.com:4567');
+
+      expect(result, isNotNull);
+      expect(result!.type, BackendType.suwayomi);
+      expect(result.normalizedBaseUrl.scheme, 'http');
     });
 
     test('identifies a Komga server from its unauthenticated claim endpoint',

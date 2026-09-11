@@ -23,14 +23,21 @@ class BackendDetector {
   final http.Client _client;
   final Duration _timeout;
 
-  Uri _normalize(String rawUrlInput) {
-    var input = rawUrlInput.trim();
-    if (!input.startsWith('http://') && !input.startsWith('https://')) {
-      input = 'http://$input';
+  /// Splits a raw URL into the candidate base URL(s) to probe, in the
+  /// order to try them. If the user already gave an explicit scheme,
+  /// there's only one candidate — respect it. Otherwise, try https first
+  /// (the common case: reverse-proxied or public-internet-hosted servers,
+  /// e.g. a duckdns domain) and fall back to http (the LAN-only case,
+  /// e.g. a bare local IP with no TLS at all).
+  List<Uri> _candidateUrls(String rawUrlInput) {
+    final input = rawUrlInput.trim();
+    if (input.startsWith('http://') || input.startsWith('https://')) {
+      return [Uri.parse(input).replace(path: '')];
     }
-    final uri = Uri.parse(input);
-    // Strip any trailing path the user might have pasted in.
-    return uri.replace(path: '');
+    return [
+      Uri.parse('https://$input').replace(path: ''),
+      Uri.parse('http://$input').replace(path: ''),
+    ];
   }
 
   /// POST doesn't auto-follow 3xx redirects on native platforms — dart:io's
@@ -85,18 +92,18 @@ class BackendDetector {
   }
 
   Future<DetectionResult?> detect(String rawUrlInput) async {
-    final baseUrl = _normalize(rawUrlInput);
+    for (final baseUrl in _candidateUrls(rawUrlInput)) {
+      final results = await Future.wait([
+        _probeSuwayomi(baseUrl),
+        _probeKomga(baseUrl),
+        _probeKavita(baseUrl),
+      ]);
 
-    final results = await Future.wait([
-      _probeSuwayomi(baseUrl),
-      _probeKomga(baseUrl),
-      _probeKavita(baseUrl),
-    ]);
-
-    for (final result in results) {
-      if (result != null) {
-        return DetectionResult(
-            type: result.type, normalizedBaseUrl: result.resolvedUrl);
+      for (final result in results) {
+        if (result != null) {
+          return DetectionResult(
+              type: result.type, normalizedBaseUrl: result.resolvedUrl);
+        }
       }
     }
     return null;
