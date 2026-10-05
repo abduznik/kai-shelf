@@ -19,7 +19,8 @@ import 'suwayomi_queries.dart';
 /// the login mutation was rejected as Unauthorized on the very next
 /// request. BASIC_AUTH has no session/expiry to manage and is the only
 /// mode Kai-Shelf supports.
-class SuwayomiBackend implements ServerBackend, SourceCapableBackend {
+class SuwayomiBackend
+    implements ServerBackend, SourceCapableBackend, ExtensionCapableBackend {
   SuwayomiBackend(ServerConnectionInfo connectionInfo,
       {http.Client? httpClient})
       : _connectionInfo = connectionInfo,
@@ -185,6 +186,11 @@ class SuwayomiBackend implements ServerBackend, SourceCapableBackend {
         .toList();
   }
 
+  /// Suwayomi returns the whole list in one response (no server paging).
+  @override
+  Future<List<KsManga>> getAllManga({String? libraryId, String? searchQuery}) =>
+      getMangaList(libraryId: libraryId, searchQuery: searchQuery);
+
   @override
   Future<KsManga> getMangaDetail(String mangaId) async {
     final result = await _client.query(
@@ -323,6 +329,177 @@ class SuwayomiBackend implements ServerBackend, SourceCapableBackend {
   }
 
   @override
+  Future<KsSourcePage> browseSource(
+    String sourceId, {
+    SourceBrowseMode mode = SourceBrowseMode.popular,
+    String query = '',
+    int page = 1,
+    List<KsFilterChange> filters = const [],
+  }) async {
+    final result = await _client.mutate(
+      MutationOptions(
+        document: gql(SuwayomiQueries.sourceBrowseMutation),
+        variables: {
+          'sourceId': sourceId,
+          'type': mode.name.toUpperCase(),
+          'query': mode == SourceBrowseMode.search ? query : null,
+          'page': page,
+          'filters': mode == SourceBrowseMode.search && filters.isNotEmpty
+              ? filters.map(SuwayomiMappers.filterChangeToJson).toList()
+              : null,
+        },
+        fetchPolicy: FetchPolicy.noCache,
+      ),
+    );
+    _throwIfAuthError(result);
+    _throwIfError(result);
+
+    final data = result.data?['fetchSourceManga'] as Map<String, dynamic>?;
+    final nodes = data?['mangas'] as List? ?? [];
+    return KsSourcePage(
+      items: nodes
+          .map((n) => SuwayomiMappers.sourceMangaFromJson(
+                n as Map<String, dynamic>,
+                buildImageUrl: buildImageUrl,
+                coverHeaders: _coverHeaders,
+              ))
+          .toList(),
+      hasNextPage: data?['hasNextPage'] as bool? ?? false,
+    );
+  }
+
+  @override
+  Future<List<KsSourceFilter>> getSourceFilters(String sourceId) async {
+    final result = await _client.query(
+      QueryOptions(
+        document: gql(SuwayomiQueries.sourceFiltersQuery),
+        variables: {'id': sourceId},
+        fetchPolicy: FetchPolicy.networkOnly,
+      ),
+    );
+    _throwIfAuthError(result);
+    _throwIfError(result);
+    final raw = result.data?['source']?['filters'] as List? ?? [];
+    return SuwayomiMappers.filtersFromJson(raw);
+  }
+
+  @override
+  Future<void> removeFromLibrary(String sourceMangaId) async {
+    final result = await _client.mutate(
+      MutationOptions(
+        document: gql(SuwayomiQueries.removeMangaFromLibraryMutation),
+        variables: {'id': int.parse(sourceMangaId)},
+        fetchPolicy: FetchPolicy.noCache,
+      ),
+    );
+    _throwIfAuthError(result);
+    _throwIfError(result);
+  }
+
+  @override
+  Future<List<KsExtension>> getExtensions({bool refresh = false}) async {
+    final QueryResult result;
+    if (refresh) {
+      result = await _client.mutate(
+        MutationOptions(
+          document: gql(SuwayomiQueries.fetchExtensionsMutation),
+          fetchPolicy: FetchPolicy.noCache,
+        ),
+      );
+    } else {
+      result = await _client.query(
+        QueryOptions(
+          document: gql(SuwayomiQueries.extensionListQuery),
+          fetchPolicy: FetchPolicy.networkOnly,
+        ),
+      );
+    }
+    _throwIfAuthError(result);
+    _throwIfError(result);
+
+    final nodes = (refresh
+            ? result.data?['fetchExtensions']?['extensions']
+            : result.data?['extensions']?['nodes']) as List? ??
+        [];
+    return nodes
+        .map((n) => SuwayomiMappers.extensionFromJson(
+              n as Map<String, dynamic>,
+              buildImageUrl: buildImageUrl,
+            ))
+        .toList();
+  }
+
+  Future<void> _patchExtension(String pkgName, Map<String, bool> patch) async {
+    final result = await _client.mutate(
+      MutationOptions(
+        document: gql(SuwayomiQueries.updateExtensionMutation),
+        variables: {'id': pkgName, 'patch': patch},
+        fetchPolicy: FetchPolicy.noCache,
+      ),
+    );
+    _throwIfAuthError(result);
+    _throwIfError(result);
+  }
+
+  @override
+  Future<void> installExtension(String pkgName) =>
+      _patchExtension(pkgName, {'install': true});
+
+  @override
+  Future<void> updateExtension(String pkgName) =>
+      _patchExtension(pkgName, {'update': true});
+
+  @override
+  Future<void> uninstallExtension(String pkgName) =>
+      _patchExtension(pkgName, {'uninstall': true});
+
+  @override
+  Future<List<KsExtensionRepo>> getExtensionRepos() async {
+    final result = await _client.query(
+      QueryOptions(
+        document: gql(SuwayomiQueries.extensionStoreListQuery),
+        fetchPolicy: FetchPolicy.networkOnly,
+      ),
+    );
+    _throwIfAuthError(result);
+    _throwIfError(result);
+    final nodes = result.data?['extensionStores']?['nodes'] as List? ?? [];
+    return nodes
+        .map((n) => SuwayomiMappers.repoFromJson(n as Map<String, dynamic>))
+        .toList();
+  }
+
+  @override
+  Future<void> addExtensionRepo(String indexUrl) async {
+    final result = await _client.mutate(
+      MutationOptions(
+        document: gql(SuwayomiQueries.addExtensionStoreMutation),
+        variables: {'indexUrl': indexUrl},
+        fetchPolicy: FetchPolicy.noCache,
+      ),
+    );
+    _throwIfAuthError(result);
+    _throwIfError(result);
+  }
+
+  @override
+  Future<void> removeExtensionRepo(String indexUrl) async {
+    final result = await _client.mutate(
+      MutationOptions(
+        document: gql(SuwayomiQueries.removeExtensionStoreMutation),
+        variables: {'indexUrl': indexUrl},
+        fetchPolicy: FetchPolicy.noCache,
+      ),
+    );
+    _throwIfAuthError(result);
+    _throwIfError(result);
+  }
+
+  Map<String, String>? get _coverHeaders => _connectionInfo.extraHeaders.isEmpty
+      ? null
+      : _connectionInfo.extraHeaders;
+
+  @override
   Uri buildImageUrl(String pathOrId) {
     if (pathOrId.startsWith('http')) return Uri.parse(pathOrId);
     return _connectionInfo.baseUrl.replace(path: pathOrId);
@@ -334,5 +511,16 @@ class SuwayomiBackend implements ServerBackend, SourceCapableBackend {
     if (message.contains('401') || message.contains('Unauthorized')) {
       throw const BackendAuthException();
     }
+  }
+
+  /// Surfaces GraphQL errors that aren't auth-related, so operations like
+  /// installing an extension fail visibly instead of silently doing nothing.
+  void _throwIfError(QueryResult result) {
+    if (!result.hasException) return;
+    final graphqlErrors = result.exception?.graphqlErrors ?? const [];
+    if (graphqlErrors.isNotEmpty) {
+      throw BackendException(graphqlErrors.first.message);
+    }
+    throw BackendException(result.exception.toString());
   }
 }

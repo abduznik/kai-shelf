@@ -2,6 +2,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/add_server_screen.dart';
 import '../../features/downloads/presentation/downloads_screen.dart';
+import '../../features/extensions/presentation/extensions_screen.dart';
+import '../../features/library/presentation/global_search_screen.dart';
 import '../../features/library/presentation/library_screen.dart';
 import '../../features/library/presentation/manga_detail_screen.dart';
 import '../../features/library/presentation/source_list_screen.dart';
@@ -37,6 +39,14 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/discover',
       builder: (context, state) => const SourceListScreen(),
+    ),
+    GoRoute(
+      path: '/discover/all',
+      builder: (context, state) => const GlobalSearchScreen(),
+    ),
+    GoRoute(
+      path: '/extensions',
+      builder: (context, state) => const ExtensionsScreen(),
     ),
     GoRoute(
       path: '/discover/:sourceId',

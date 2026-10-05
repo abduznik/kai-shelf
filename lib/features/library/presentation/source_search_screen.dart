@@ -6,10 +6,11 @@ import '../../../core/backend/server_backend.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../../core/providers/source_providers.dart';
 import '../../../core/widgets/authenticated_image.dart';
+import 'widgets/source_filter_sheet.dart';
 
-/// Searches one source's catalog and lets the user add a result straight
-/// to their library. Distinct from the in-library LibraryScreen search,
-/// which only filters manga already added.
+/// Browses one source: popular and latest listings, or a search narrowed
+/// by the source's own filters. Results page in as the user scrolls and
+/// each can be added to (or removed from) the library.
 class SourceSearchScreen extends ConsumerStatefulWidget {
   const SourceSearchScreen(
       {super.key, required this.sourceId, required this.sourceName});
@@ -22,107 +23,332 @@ class SourceSearchScreen extends ConsumerStatefulWidget {
 }
 
 class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
+  final _scroll = ScrollController();
+  final _searchController = TextEditingController();
+
+  SourceBrowseMode _mode = SourceBrowseMode.popular;
   String _query = '';
-  final Set<String> _addingIds = {};
+  List<KsFilterChange> _filters = const [];
+
+  final List<KsSourceManga> _items = [];
+  final Set<String> _seen = {};
+  final Set<String> _busyIds = {};
+  int _page = 0;
+  bool _hasNext = true;
+  bool _loading = false;
+  Object? _error;
+  // Guards against a slow earlier request overwriting a newer one.
+  int _generation = 0;
+
+  SourceCapableBackend? get _backend {
+    final b = ref.read(activeBackendProvider);
+    return b is SourceCapableBackend ? b as SourceCapableBackend : null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(() {
+      if (_scroll.position.extentAfter < 400) _loadMore();
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reload());
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _reload() {
+    _generation++;
+    setState(() {
+      _items.clear();
+      _seen.clear();
+      _page = 0;
+      _hasNext = true;
+      _error = null;
+      _loading = false;
+    });
+    _loadMore();
+  }
+
+  Future<void> _loadMore() async {
+    final backend = _backend;
+    if (backend == null || _loading || !_hasNext) return;
+    final gen = _generation;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final result = await backend.browseSource(
+        widget.sourceId,
+        mode: _mode,
+        query: _query,
+        page: _page + 1,
+        filters: _filters,
+      );
+      if (!mounted || gen != _generation) return;
+      setState(() {
+        _page++;
+        _hasNext = result.hasNextPage;
+        for (final m in result.items) {
+          if (_seen.add(m.id)) _items.add(m);
+        }
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted || gen != _generation) return;
+      setState(() {
+        _error = e;
+        _loading = false;
+      });
+    }
+  }
+
+  void _submitSearch(String value) {
+    _query = value.trim();
+    _mode = _query.isEmpty && _filters.isEmpty
+        ? SourceBrowseMode.popular
+        : SourceBrowseMode.search;
+    _reload();
+  }
+
+  Future<void> _openFilters() async {
+    final filters =
+        await ref.read(sourceFiltersProvider(widget.sourceId).future);
+    if (!mounted) return;
+    final result = await showModalBottomSheet<List<KsFilterChange>>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => SourceFilterSheet(filters: filters, initial: _filters),
+    );
+    if (result == null) return;
+    _filters = result;
+    _mode = _query.isEmpty && _filters.isEmpty
+        ? SourceBrowseMode.popular
+        : SourceBrowseMode.search;
+    _reload();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final resultsAsync = ref.watch(sourceSearchProvider(
-      SourceSearchParams(sourceId: widget.sourceId, query: _query),
-    ));
+    final filtersAsync = ref.watch(sourceFiltersProvider(widget.sourceId));
+    final hasFilters = filtersAsync.valueOrNull?.isNotEmpty ?? false;
+    final sources = ref.watch(sourceListProvider).valueOrNull;
+    final supportsLatest = sources
+            ?.where((s) => s.id == widget.sourceId)
+            .map((s) => s.supportsLatest)
+            .firstOrNull ??
+        true;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.sourceName),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(56),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: TextField(
-              decoration: const InputDecoration(
-                hintText: 'Search this source',
-                prefixIcon: Icon(Icons.search),
-                isDense: true,
-                border: OutlineInputBorder(),
+        actions: [
+          if (hasFilters)
+            IconButton(
+              tooltip: 'Filters',
+              icon: Badge(
+                isLabelVisible: _filters.isNotEmpty,
+                label: Text('${_filters.length}'),
+                child: const Icon(Icons.filter_list),
               ),
-              onSubmitted: (value) => setState(() => _query = value),
-              onChanged: (value) => setState(() => _query = value),
+              onPressed: _openFilters,
             ),
+        ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(108),
+          child: Column(
+            children: [
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: TextField(
+                  controller: _searchController,
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    hintText: 'Search this source',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _query.isEmpty
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () {
+                              _searchController.clear();
+                              _submitSearch('');
+                            },
+                          ),
+                    isDense: true,
+                    border: const OutlineInputBorder(),
+                  ),
+                  onSubmitted: _submitSearch,
+                ),
+              ),
+              SegmentedButton<SourceBrowseMode>(
+                showSelectedIcon: false,
+                segments: [
+                  const ButtonSegment(
+                      value: SourceBrowseMode.popular, label: Text('Popular')),
+                  if (supportsLatest)
+                    const ButtonSegment(
+                        value: SourceBrowseMode.latest, label: Text('Latest')),
+                  const ButtonSegment(
+                      value: SourceBrowseMode.search, label: Text('Search')),
+                ],
+                selected: {_mode},
+                onSelectionChanged: (s) {
+                  _mode = s.first;
+                  _reload();
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
           ),
         ),
       ),
-      body: _query.isEmpty
-          ? const Center(child: Text('Type to search this source.'))
-          : resultsAsync.when(
-              data: (results) {
-                if (results.isEmpty) {
-                  return const Center(child: Text('No results found.'));
-                }
-                return ListView.builder(
-                  itemCount: results.length,
-                  itemBuilder: (context, index) {
-                    final manga = results[index];
-                    return ListTile(
-                      leading: SizedBox(
-                        width: 40,
-                        height: 56,
-                        child: manga.coverUrl != null
-                            ? AuthenticatedImage(
-                                imageUrl: manga.coverUrl!,
-                                headers: manga.coverHeaders,
-                                fit: BoxFit.cover,
-                              )
-                            : Container(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .surfaceContainerHighest,
-                              ),
-                      ),
-                      title: Text(manga.title),
-                      trailing: manga.inLibrary
-                          ? const Icon(Icons.check_circle_outline)
-                          : IconButton(
-                              icon: _addingIds.contains(manga.id)
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2),
-                                    )
-                                  : const Icon(Icons.add_circle_outline),
-                              tooltip: 'Add to library',
-                              onPressed: _addingIds.contains(manga.id)
-                                  ? null
-                                  : () => _addToLibrary(manga),
-                            ),
-                    );
-                  },
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, _) => Center(child: Text('Search failed: $error')),
-            ),
+      body: _buildBody(),
     );
   }
 
-  Future<void> _addToLibrary(KsSourceManga manga) async {
-    final rawBackend = ref.read(activeBackendProvider);
-    if (rawBackend is! SourceCapableBackend) return;
-    final backend = rawBackend as SourceCapableBackend;
-
-    setState(() => _addingIds.add(manga.id));
-    try {
-      await backend.addToLibrary(manga.id);
-      ref.invalidate(sourceSearchProvider(
-        SourceSearchParams(sourceId: widget.sourceId, query: _query),
-      ));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Added "${manga.title}" to library')),
+  Widget _buildBody() {
+    if (_items.isEmpty) {
+      if (_loading) return const Center(child: CircularProgressIndicator());
+      if (_error != null) {
+        return Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Failed to load: $_error'),
+              const SizedBox(height: 8),
+              FilledButton(onPressed: _reload, child: const Text('Retry')),
+            ],
+          ),
         );
       }
+      return const Center(child: Text('No results found.'));
+    }
+    return GridView.builder(
+      controller: _scroll,
+      padding: const EdgeInsets.all(12),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 160,
+        mainAxisSpacing: 12,
+        crossAxisSpacing: 12,
+        childAspectRatio: 0.58,
+      ),
+      itemCount: _items.length + (_hasNext || _error != null ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index >= _items.length) {
+          return _error != null
+              ? Center(
+                  child: TextButton(
+                      onPressed: _loadMore, child: const Text('Retry')))
+              : const Center(child: CircularProgressIndicator());
+        }
+        return _tile(_items[index]);
+      },
+    );
+  }
+
+  Widget _tile(KsSourceManga manga) {
+    final busy = _busyIds.contains(manga.id);
+    final scheme = Theme.of(context).colorScheme;
+    return InkWell(
+      onTap: busy ? null : () => _toggleLibrary(manga),
+      borderRadius: BorderRadius.circular(8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: manga.coverUrl != null
+                      ? AuthenticatedImage(
+                          imageUrl: manga.coverUrl!,
+                          headers: manga.coverHeaders,
+                          fit: BoxFit.cover,
+                          errorWidget: (context, error) => Container(
+                              color: scheme.surfaceContainerHighest,
+                              child: const Icon(Icons.broken_image_outlined)),
+                        )
+                      : Container(color: scheme.surfaceContainerHighest),
+                ),
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: CircleAvatar(
+                    radius: 14,
+                    backgroundColor: scheme.surface.withValues(alpha: 0.9),
+                    child: busy
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2))
+                        : Icon(
+                            manga.inLibrary
+                                ? Icons.favorite
+                                : Icons.favorite_border,
+                            size: 16,
+                            color: manga.inLibrary
+                                ? scheme.primary
+                                : scheme.onSurface),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(manga.title,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _toggleLibrary(KsSourceManga manga) async {
+    final backend = _backend;
+    if (backend == null) return;
+    setState(() => _busyIds.add(manga.id));
+    try {
+      if (manga.inLibrary) {
+        await backend.removeFromLibrary(manga.id);
+      } else {
+        await backend.addToLibrary(manga.id);
+      }
+      final index = _items.indexWhere((m) => m.id == manga.id);
+      if (index != -1 && mounted) {
+        setState(() => _items[index] = KsSourceManga(
+              id: manga.id,
+              title: manga.title,
+              coverUrl: manga.coverUrl,
+              coverHeaders: manga.coverHeaders,
+              description: manga.description,
+              genres: manga.genres,
+              inLibrary: !manga.inLibrary,
+            ));
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(manga.inLibrary
+              ? 'Removed "${manga.title}" from library'
+              : 'Added "${manga.title}" to library'),
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+      }
     } finally {
-      if (mounted) setState(() => _addingIds.remove(manga.id));
+      if (mounted) setState(() => _busyIds.remove(manga.id));
     }
   }
 }

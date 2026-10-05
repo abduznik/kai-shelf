@@ -64,3 +64,13 @@ class BackendAuthException implements Exception {
   @override
   String toString() => 'BackendAuthException: $message';
 }
+
+/// A backend call failed for a reason other than authentication.
+class BackendException implements Exception {
+  const BackendException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}

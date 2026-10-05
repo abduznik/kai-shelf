@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../backend/models.dart';
 import '../backend/server_backend.dart';
 import 'backend_providers.dart';
+import 'extension_providers.dart';
 
 /// Lists installed sources for backends that support catalog discovery.
 /// Returns an empty list for backends without [SourceCapableBackend]
@@ -10,6 +11,7 @@ import 'backend_providers.dart';
 /// discover entry point when this comes back empty.
 final sourceListProvider =
     FutureProvider.autoDispose<List<KsSource>>((ref) async {
+  ref.watch(sourceCatalogRefreshProvider);
   final backend = ref.watch(activeBackendProvider);
   if (backend is! SourceCapableBackend) return [];
   return (backend as SourceCapableBackend).getSources();
@@ -38,4 +40,12 @@ final sourceSearchProvider = FutureProvider.autoDispose
   if (backend is! SourceCapableBackend) return [];
   return (backend as SourceCapableBackend)
       .searchSource(params.sourceId, params.query);
+});
+
+/// Filters a source can be narrowed by, in their default state.
+final sourceFiltersProvider = FutureProvider.autoDispose
+    .family<List<KsSourceFilter>, String>((ref, sourceId) async {
+  final backend = ref.watch(activeBackendProvider);
+  if (backend is! SourceCapableBackend) return [];
+  return (backend as SourceCapableBackend).getSourceFilters(sourceId);
 });
