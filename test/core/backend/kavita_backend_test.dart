@@ -126,14 +126,94 @@ void main() {
       expect(pages.first.imageUrl, contains('page=0'));
     });
 
-    test('getPages throws a clear error if called before getChapters',
+    test('getPages resolves a chapter opened without listing its series',
         () async {
-      final client =
-          MockClient((request) async => http.Response('not found', 404));
+      final client = MockClient((request) async {
+        switch (request.url.path) {
+          case '/api/Chapter':
+            return http.Response(
+                jsonEncode({'id': 100, 'volumeId': 7, 'pages': 5}), 200);
+          case '/api/Series/volume':
+            expect(request.url.queryParameters['volumeId'], '7');
+            return http.Response(jsonEncode({'id': 7, 'seriesId': 42}), 200);
+          case '/api/Series/42':
+            return http.Response(
+                jsonEncode({'id': 42, 'name': 'S', 'libraryId': 3}), 200);
+        }
+        return http.Response('not found', 404);
+      });
       final backend = KavitaBackend(_connectionInfo(), httpClient: client);
 
-      expect(() => backend.getPages('unknown-chapter'),
-          throwsA(isA<StateError>()));
+      final pages = await backend.getPages('100');
+      expect(pages, hasLength(5));
+    });
+
+    test('page image URLs carry the API key Kavita requires', () async {
+      final client = MockClient((request) async {
+        switch (request.url.path) {
+          case '/api/Chapter':
+            return http.Response(
+                jsonEncode({'id': 1, 'volumeId': 1, 'pages': 1}), 200);
+          case '/api/Series/volume':
+            return http.Response(jsonEncode({'id': 1, 'seriesId': 1}), 200);
+          case '/api/Series/1':
+            return http.Response(
+                jsonEncode({'id': 1, 'name': 'S', 'libraryId': 1}), 200);
+        }
+        return http.Response('not found', 404);
+      });
+      final info = _connectionInfo().copyWith(apiKey: 'secret-key');
+      final backend = KavitaBackend(info, httpClient: client);
+
+      final pages = await backend.getPages('1');
+      expect(Uri.parse(pages.single.imageUrl).queryParameters['apiKey'],
+          'secret-key');
+    });
+
+    test('volume-only chapters (-100000 sentinel) are titled by volume',
+        () async {
+      final client = MockClient((request) async {
+        switch (request.url.path) {
+          case '/api/Series/volumes':
+            return http.Response(
+                jsonEncode([
+                  {
+                    'id': 1,
+                    'number': 2,
+                    'name': '2',
+                    'chapters': [
+                      {
+                        'id': 10,
+                        'number': '-100000',
+                        'title': '-100000',
+                        'pages': 3
+                      }
+                    ]
+                  },
+                  {
+                    'id': 2,
+                    'number': 1,
+                    'name': '1',
+                    'chapters': [
+                      {'id': 11, 'number': '5', 'title': '', 'pages': 3}
+                    ]
+                  },
+                ]),
+                200);
+          case '/api/Series/1':
+            return http.Response(
+                jsonEncode({'id': 1, 'name': 'S', 'libraryId': 1}), 200);
+          case '/api/Series/metadata':
+            return http.Response('{}', 200);
+        }
+        return http.Response('not found', 404);
+      });
+      final backend = KavitaBackend(_connectionInfo(), httpClient: client);
+
+      final chapters = await backend.getChapters('1');
+      expect(chapters[0].title, 'Volume 2');
+      expect(chapters[0].chapterNumber, 2);
+      expect(chapters[1].title, 'Chapter 5');
     });
   });
 }

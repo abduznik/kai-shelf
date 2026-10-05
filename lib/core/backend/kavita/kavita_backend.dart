@@ -103,7 +103,10 @@ class KavitaBackend implements ServerBackend {
   Future<List<KsManga>> getMangaList(
       {String? libraryId, String? searchQuery, int page = 0}) async {
     final response = await _client.post(
-      _uri('/api/Series/v2', {'PageNumber': (page + 1).toString()}),
+      _uri('/api/Series/v2', {
+        'PageNumber': (page + 1).toString(),
+        'PageSize': _pageSize.toString(),
+      }),
       headers: {..._authHeaders, 'Content-Type': 'application/json'},
       body: jsonEncode({
         if (libraryId != null) 'libraryId': int.parse(libraryId),
@@ -120,6 +123,24 @@ class KavitaBackend implements ServerBackend {
               coverHeaders: _authHeaders.isEmpty ? null : _authHeaders,
             ))
         .toList();
+  }
+
+  static const _pageSize = 200;
+
+  @override
+  Future<List<KsManga>> getAllManga(
+      {String? libraryId, String? searchQuery}) async {
+    final all = <KsManga>[];
+    final seen = <String>{};
+    for (var page = 0;; page++) {
+      final batch = await getMangaList(
+          libraryId: libraryId, searchQuery: searchQuery, page: page);
+      // A repeated id means the server ignored the page parameter.
+      final fresh = batch.where((m) => seen.add(m.id)).toList();
+      all.addAll(fresh);
+      if (batch.length < _pageSize || fresh.isEmpty) break;
+    }
+    return all;
   }
 
   @override
@@ -167,6 +188,7 @@ class KavitaBackend implements ServerBackend {
         final chapter = KavitaMappers.chapterFromJson(
           chapterJson as Map<String, dynamic>,
           mangaId: mangaId,
+          volume: volume,
         );
         _chapterContext[chapter.id] = (
           seriesId: mangaId,
@@ -179,23 +201,58 @@ class KavitaBackend implements ServerBackend {
     return chapters;
   }
 
+  /// Series/library/page-count for a chapter. Normally cached by
+  /// [getChapters], but a reader opened directly (deep link, page reload)
+  /// never listed its series first, so fall back to resolving it from the
+  /// chapter id: chapter -> volume -> series -> library.
+  Future<({String seriesId, String libraryId, int pageCount})> _contextFor(
+      String chapterId) async {
+    final cached = _chapterContext[chapterId];
+    if (cached != null) return cached;
+
+    final chapterResponse = await _client.get(
+        _uri('/api/Chapter', {'chapterId': chapterId}),
+        headers: _authHeaders);
+    _throwIfAuthError(chapterResponse);
+    final chapterJson =
+        jsonDecode(chapterResponse.body) as Map<String, dynamic>;
+
+    final volumeResponse = await _client.get(
+        _uri('/api/Series/volume', {'volumeId': '${chapterJson['volumeId']}'}),
+        headers: _authHeaders);
+    _throwIfAuthError(volumeResponse);
+    final seriesId =
+        (jsonDecode(volumeResponse.body) as Map<String, dynamic>)['seriesId']
+            .toString();
+
+    final libraryId =
+        (await getMangaDetail(seriesId)).backendExtra['libraryId'].toString();
+    final context = (
+      seriesId: seriesId,
+      libraryId: libraryId,
+      pageCount: (chapterJson['pages'] as num?)?.toInt() ?? 0,
+    );
+    _chapterContext[chapterId] = context;
+    return context;
+  }
+
   @override
   Future<List<KsPage>> getPages(String chapterId) async {
     // Kavita's ChapterDto (fetched via getChapters, which populates
     // _chapterContext) already carries the page count — there's no
     // separate "list pages" endpoint to call here.
-    final context = _chapterContext[chapterId];
-    if (context == null) {
-      throw StateError(
-          'getPages called before getChapters populated context for $chapterId');
-    }
+    final context = await _contextFor(chapterId);
 
     return List.generate(
       context.pageCount,
       (i) => KsPage(
         index: i,
         imageUrl:
-            buildImageUrl('/api/Reader/image?chapterId=$chapterId&page=$i')
+            // Confirmed against a live Kavita: the reader image endpoint
+            // 400s ("apiKey field is required") unless the key is also a
+            // query parameter, even when a Bearer header is sent.
+            _withApiKey(buildImageUrl(
+                    '/api/Reader/image?chapterId=$chapterId&page=$i'))
                 .toString(),
         extraHeaders: _authHeaders.isEmpty ? null : _authHeaders,
       ),
@@ -205,11 +262,7 @@ class KavitaBackend implements ServerBackend {
   @override
   Future<void> updateReadProgress(String chapterId,
       {required bool read, double? lastPageRead}) async {
-    final context = _chapterContext[chapterId];
-    if (context == null) {
-      throw StateError(
-          'updateReadProgress called before getChapters populated context for $chapterId');
-    }
+    final context = await _contextFor(chapterId);
 
     if (read) {
       final response = await _client.post(
@@ -236,6 +289,13 @@ class KavitaBackend implements ServerBackend {
       }),
     );
     _throwIfAuthError(response);
+  }
+
+  Uri _withApiKey(Uri uri) {
+    final key = _connectionInfo.apiKey;
+    if (key == null || key.isEmpty) return uri;
+    return uri
+        .replace(queryParameters: {...uri.queryParameters, 'apiKey': key});
   }
 
   @override

@@ -15,6 +15,11 @@ abstract class ServerBackend {
   Future<List<KsLibrary>> getLibraries();
   Future<List<KsManga>> getMangaList(
       {String? libraryId, String? searchQuery, int page = 0});
+
+  /// Every manga matching the filters, across all server-side pages.
+  /// [getMangaList] returns a single page (Komga's default is only 20 items),
+  /// so listing screens must use this to avoid silently truncating libraries.
+  Future<List<KsManga>> getAllManga({String? libraryId, String? searchQuery});
   Future<KsManga> getMangaDetail(String mangaId);
   Future<List<KsChapter>> getChapters(String mangaId);
   Future<List<KsPage>> getPages(String chapterId);
@@ -36,5 +41,33 @@ abstract class SourceCapableBackend {
   Future<List<KsSource>> getSources();
   Future<List<KsSourceManga>> searchSource(String sourceId, String query,
       {int page = 0});
+
+  /// Browses a source's popular/latest listing or searches it, optionally
+  /// narrowed by [filters]. Pages are 1-based, like the servers expect.
+  Future<KsSourcePage> browseSource(
+    String sourceId, {
+    SourceBrowseMode mode = SourceBrowseMode.popular,
+    String query = '',
+    int page = 1,
+    List<KsFilterChange> filters = const [],
+  });
+
+  /// The filters a source supports, in their default state.
+  Future<List<KsSourceFilter>> getSourceFilters(String sourceId);
   Future<void> addToLibrary(String sourceMangaId);
+  Future<void> removeFromLibrary(String sourceMangaId);
+}
+
+/// Optional capability for backends that can install source extensions
+/// from extension repositories (Suwayomi only).
+abstract class ExtensionCapableBackend {
+  /// Lists known extensions. With [refresh] the server first re-fetches
+  /// every repository index.
+  Future<List<KsExtension>> getExtensions({bool refresh = false});
+  Future<void> installExtension(String pkgName);
+  Future<void> updateExtension(String pkgName);
+  Future<void> uninstallExtension(String pkgName);
+  Future<List<KsExtensionRepo>> getExtensionRepos();
+  Future<void> addExtensionRepo(String indexUrl);
+  Future<void> removeExtensionRepo(String indexUrl);
 }
