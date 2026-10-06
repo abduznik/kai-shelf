@@ -99,13 +99,28 @@ class KsPage {
 /// have this concept (Suwayomi) — Komga/Kavita just index whatever's
 /// already on disk, so there is nothing to "discover" there.
 class KsSource {
-  const KsSource(
-      {required this.id, required this.name, this.lang, this.iconUrl});
+  const KsSource({
+    required this.id,
+    required this.name,
+    this.lang,
+    this.iconUrl,
+    this.displayName,
+    this.supportsLatest = true,
+    this.contentWarning = ContentWarning.unknown,
+  });
 
   final String id;
   final String name;
   final String? lang;
   final String? iconUrl;
+
+  /// Name with the language folded in ("MangaDex (EN)"), when the server
+  /// provides one — distinguishes same-named sources of different languages.
+  final String? displayName;
+  final bool supportsLatest;
+  final ContentWarning contentWarning;
+
+  String get label => displayName ?? name;
 }
 
 /// A search/browse result from a source catalog, distinct from [KsManga]
@@ -182,4 +197,154 @@ class ServerConnectionInfo {
       extraHeaders: extraHeaders ?? this.extraHeaders,
     );
   }
+}
+
+enum ContentWarning { safe, mixed, nsfw, unknown }
+
+/// A source extension in an extension store, installed or not.
+class KsExtension {
+  const KsExtension({
+    required this.pkgName,
+    required this.name,
+    this.lang,
+    this.versionName,
+    this.iconUrl,
+    this.isInstalled = false,
+    this.hasUpdate = false,
+    this.isObsolete = false,
+    this.contentWarning = ContentWarning.unknown,
+    this.storeName,
+  });
+
+  final String pkgName;
+  final String name;
+  final String? lang;
+  final String? versionName;
+  final String? iconUrl;
+  final bool isInstalled;
+  final bool hasUpdate;
+  final bool isObsolete;
+  final ContentWarning contentWarning;
+  final String? storeName;
+}
+
+/// An extension repository ("store") the server pulls extensions from.
+class KsExtensionRepo {
+  const KsExtensionRepo({required this.indexUrl, required this.name});
+
+  final String indexUrl;
+  final String name;
+}
+
+/// Which listing of a source to browse.
+enum SourceBrowseMode { popular, latest, search }
+
+class KsSourceFilterOption {
+  const KsSourceFilterOption(this.label);
+
+  final String label;
+}
+
+/// One filter a source exposes (genre pickers, sort order, status, ...).
+/// Sources define their own sets, so filters are described generically and
+/// rendered dynamically. [position] is the index within its parent list,
+/// which is how servers address a filter when it is changed.
+sealed class KsSourceFilter {
+  const KsSourceFilter({required this.name, required this.position});
+
+  final String name;
+  final int position;
+}
+
+class KsHeaderFilter extends KsSourceFilter {
+  const KsHeaderFilter({required super.name, required super.position});
+}
+
+class KsSeparatorFilter extends KsSourceFilter {
+  const KsSeparatorFilter({required super.name, required super.position});
+}
+
+class KsTextFilter extends KsSourceFilter {
+  const KsTextFilter(
+      {required super.name, required super.position, this.value = ''});
+
+  final String value;
+}
+
+class KsCheckBoxFilter extends KsSourceFilter {
+  const KsCheckBoxFilter(
+      {required super.name, required super.position, this.value = false});
+
+  final bool value;
+}
+
+enum KsTriState { ignore, include, exclude }
+
+class KsTriStateFilter extends KsSourceFilter {
+  const KsTriStateFilter(
+      {required super.name,
+      required super.position,
+      this.value = KsTriState.ignore});
+
+  final KsTriState value;
+}
+
+class KsSelectFilter extends KsSourceFilter {
+  const KsSelectFilter(
+      {required super.name,
+      required super.position,
+      required this.options,
+      this.selected = 0});
+
+  final List<String> options;
+  final int selected;
+}
+
+class KsSortFilter extends KsSourceFilter {
+  const KsSortFilter(
+      {required super.name,
+      required super.position,
+      required this.options,
+      this.selected = 0,
+      this.ascending = false});
+
+  final List<String> options;
+  final int selected;
+  final bool ascending;
+}
+
+class KsGroupFilter extends KsSourceFilter {
+  const KsGroupFilter(
+      {required super.name, required super.position, required this.children});
+
+  final List<KsSourceFilter> children;
+}
+
+/// A single user edit to a source filter, addressed by position path
+/// (outermost group first). Value fields mirror the filter kinds.
+class KsFilterChange {
+  const KsFilterChange({
+    required this.path,
+    this.checkBox,
+    this.triState,
+    this.select,
+    this.text,
+    this.sortIndex,
+    this.sortAscending,
+  });
+
+  final List<int> path;
+  final bool? checkBox;
+  final KsTriState? triState;
+  final int? select;
+  final String? text;
+  final int? sortIndex;
+  final bool? sortAscending;
+}
+
+class KsSourcePage {
+  const KsSourcePage({required this.items, required this.hasNextPage});
+
+  final List<KsSourceManga> items;
+  final bool hasNextPage;
 }

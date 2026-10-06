@@ -93,7 +93,10 @@ class KomgaBackend implements ServerBackend {
   @override
   Future<List<KsManga>> getMangaList(
       {String? libraryId, String? searchQuery, int page = 0}) async {
-    final query = <String, String>{'page': page.toString()};
+    final query = <String, String>{
+      'page': page.toString(),
+      'size': _pageSize.toString(),
+    };
     if (libraryId != null) query['library_id'] = libraryId;
     if (searchQuery != null && searchQuery.isNotEmpty) {
       query['search'] = searchQuery;
@@ -111,6 +114,24 @@ class KomgaBackend implements ServerBackend {
               coverHeaders: _authHeaders.isEmpty ? null : _authHeaders,
             ))
         .toList();
+  }
+
+  static const _pageSize = 200;
+
+  @override
+  Future<List<KsManga>> getAllManga(
+      {String? libraryId, String? searchQuery}) async {
+    final all = <KsManga>[];
+    final seen = <String>{};
+    for (var page = 0;; page++) {
+      final batch = await getMangaList(
+          libraryId: libraryId, searchQuery: searchQuery, page: page);
+      // A repeated id means the server ignored the page parameter.
+      final fresh = batch.where((m) => seen.add(m.id)).toList();
+      all.addAll(fresh);
+      if (batch.length < _pageSize || fresh.isEmpty) break;
+    }
+    return all;
   }
 
   @override

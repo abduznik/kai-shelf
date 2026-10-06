@@ -37,17 +37,30 @@ class KavitaMappers {
 
   /// [json] is a Kavita ChapterDto, taken from within a VolumeDto's nested
   /// `chapters` array.
+  ///
+  /// Kavita marks "no chapter number" (volume-only releases, which is how
+  /// most CBZ/EPUB libraries look) with the sentinel -100000, in both
+  /// `number` and `title`. Those fall back to the owning volume's number so
+  /// they read "Volume 1" and sort correctly instead of showing "-100000".
   static KsChapter chapterFromJson(Map<String, dynamic> json,
-      {required String mangaId}) {
+      {required String mangaId, Map<String, dynamic>? volume}) {
     final pages = (json['pages'] as num?)?.toInt() ?? 0;
     final pagesRead = (json['pagesRead'] as num?)?.toInt() ?? 0;
+    final number = double.tryParse(json['number'].toString()) ?? 0;
+    final volumeOnly = number <= -100000 || json['title'] == '-100000';
+    final volumeNumber = double.tryParse('${volume?['number'] ?? ''}');
+    final title = (json['title'] as String?);
     return KsChapter(
       id: json['id'].toString(),
       mangaId: mangaId,
-      title: (json['title'] as String?)?.isNotEmpty == true
-          ? json['title'] as String
-          : 'Chapter ${json['number']}',
-      chapterNumber: double.tryParse(json['number'].toString()) ?? 0,
+      title: volumeOnly
+          ? (volume?['name'] != null
+              ? 'Volume ${volume!['name']}'
+              : 'Volume ${volumeNumber?.toStringAsFixed(0) ?? ''}'.trim())
+          : (title != null && title.isNotEmpty
+              ? title
+              : 'Chapter ${json['number']}'),
+      chapterNumber: volumeOnly ? (volumeNumber ?? 0) : number,
       uploadDate: json['releaseDate'] != null
           ? DateTime.tryParse(json['releaseDate'] as String)
           : null,

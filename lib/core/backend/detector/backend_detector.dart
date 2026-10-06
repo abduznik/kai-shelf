@@ -93,10 +93,14 @@ class BackendDetector {
 
   Future<DetectionResult?> detect(String rawUrlInput) async {
     for (final baseUrl in _candidateUrls(rawUrlInput)) {
+      // Order is priority order. Komga and Kavita have strict, positive
+      // fingerprints; Suwayomi's BASIC_AUTH fingerprint is just "401 on
+      // /api/graphql", which a real Komga also returns (Spring Security
+      // 401s every unknown path), so Suwayomi must lose ties.
       final results = await Future.wait([
-        _probeSuwayomi(baseUrl),
         _probeKomga(baseUrl),
         _probeKavita(baseUrl),
+        _probeSuwayomi(baseUrl),
       ]);
 
       for (final result in results) {
@@ -135,6 +139,9 @@ class BackendDetector {
       );
 
       if (response.statusCode == 401) {
+        // Spring Security (Komga) answers unknown paths with a JSON body
+        // carrying timestamp/status/path; that is not Suwayomi.
+        if (_looksLikeSpringError(response.body)) return null;
         return _ProbeMatch(BackendType.suwayomi, finalUrl);
       }
 
@@ -149,6 +156,18 @@ class BackendDetector {
       // Not reachable, not Suwayomi, or not JSON — not a match.
     }
     return null;
+  }
+
+  bool _looksLikeSpringError(String body) {
+    try {
+      final json = jsonDecode(body);
+      return json is Map &&
+          json.containsKey('timestamp') &&
+          json.containsKey('status') &&
+          json.containsKey('path');
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<_ProbeMatch?> _probeKomga(Uri baseUrl) async {

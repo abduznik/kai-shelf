@@ -33,7 +33,7 @@ final mangaListProvider =
 ) async {
   final backend = ref.watch(activeBackendProvider);
   if (backend == null) return [];
-  return backend.getMangaList(
+  return backend.getAllManga(
       libraryId: params.libraryId, searchQuery: params.searchQuery);
 });
 

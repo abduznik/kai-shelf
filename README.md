@@ -51,7 +51,9 @@ Currently supports **[Suwayomi-Server](https://github.com/Suwayomi/Suwayomi-Serv
 - 📖 **Beautiful Reader** — Vertical scroll, paged mode, and custom reading directions
 - 🔄 **Sync & Updates** — Automatic chapter update checks, reading progress sync
 - ⬇️ **Offline Reading** — Download chapters for reading without a connection
-- 🔌 **Extension Management** — Install, update, and configure source extensions
+- 🔌 **Extension Manager** — Add extension repositories, then install, update and remove extensions; filter by status, language and content rating
+- 🔎 **Source Search & Filters** — Browse any source's Popular/Latest listings, search it, and narrow results with the source's own filters (genres, status, sort, tags…); search all sources at once
+- 🗂️ **Library Filters** — Sort and filter by status and genre (include or exclude), on top of title search
 - 🌙 **Dark & Light Themes** — Adaptive themes that follow your system settings
 - 📱 **Cross-Platform** — One codebase, native feel on Android, iOS, Windows, and Web
 - ⚡ **Fast & Lightweight** — Flutter native performance, no Electron overhead
@@ -62,8 +64,8 @@ Currently supports **[Suwayomi-Server](https://github.com/Suwayomi/Suwayomi-Serv
 | Server | Status | Notes |
 |--------|--------|-------|
 | [Suwayomi-Server](https://github.com/Suwayomi/Suwayomi-Server) | ✅ Supported | GraphQL API, extensions, full library |
-| [Komga](https://github.com/gotson/komga) | 🔜 Planned | REST API, OPDS support |
-| [Kavita](https://github.com/Kareadita/Kavita) | 🔜 Planned | REST API, manga + books |
+| [Komga](https://github.com/gotson/komga) | ✅ Supported | REST API; email/password or API key. Tested against Komga 1.28 |
+| [Kavita](https://github.com/Kareadita/Kavita) | ✅ Supported | REST API; API key. Tested against Kavita 0.9 |
 
 Don't see your server? [Open an issue](https://github.com/abduznik/kai-shelf/issues) — we prioritize by demand.
 
@@ -96,19 +98,25 @@ flutter build windows          # Windows
 
 ## Configuration
 
-1. Install and run a [Suwayomi-Server](https://github.com/Suwayomi/Suwayomi-Server) instance
-2. Open Kai-Shelf and go to **Settings → Servers**
-3. Enter your server URL (e.g., `http://192.168.1.100:4567`)
-4. Authenticate if prompted
-5. Your library syncs automatically
+1. Run a [Suwayomi](https://github.com/Suwayomi/Suwayomi-Server), [Komga](https://github.com/gotson/komga) or [Kavita](https://github.com/Kareadita/Kavita) server
+2. Open Kai-Shelf and enter your server URL (e.g., `http://192.168.1.100:4567`). The server type is detected automatically
+3. Authenticate if prompted
+4. Your library syncs automatically
+
+### Installing sources (Suwayomi)
+
+1. Open **Library → Extensions** (or **Settings → Extensions**)
+2. Tap the repositories icon and add a repository (there's a one-tap button for the community Keiyoushi repo), or paste any extension index URL
+3. Search or filter the list, then tap **Install**
+4. Go to **Discover** to browse, search and filter that source, and tap a cover to add it to your library
 
 Multiple servers supported — switch between them from the sidebar.
 
 ## Roadmap
 
-- [ ] Suwayomi: full feature parity with Sorayomi/Tsumiru
-- [ ] Komga server backend
-- [ ] Kavita server backend
+- [x] Suwayomi: extension manager, source browse/search/filters
+- [x] Komga server backend
+- [x] Kavita server backend
 - [ ] Reading list / bookmarks
 - [ ] Custom reading modes (webtoon, right-to-left)
 - [ ] Notification support for new chapters
@@ -125,6 +133,10 @@ git checkout -b feature/my-feature
 flutter test
 flutter analyze
 ```
+
+`flutter test` also runs the integration tests in `test/integration`, which skip themselves unless pointed at a real server. `tools/integration/run.sh` starts Suwayomi, Komga and Kavita in containers (docker or podman), seeds them with test comics and runs those tests — it's what CI does.
+
+The logo is generated with [picocad2-py](https://github.com/abduznik/picocad2-py): `python3 tools/make_logo.py`.
 
 ## Acknowledgments
 

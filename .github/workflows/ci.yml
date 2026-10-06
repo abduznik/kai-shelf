@@ -28,3 +28,39 @@ jobs:
 
       - name: Run tests
         run: flutter test
+
+  integration:
+    name: Live server tests
+    runs-on: ubuntu-latest
+    needs: analyze-and-test
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # Starts real Suwayomi, Komga and Kavita containers, seeds them with
+      # comics, and runs test/integration against them.
+      - name: Run integration tests
+        run: tools/integration/run.sh
+
+  web-build:
+    name: Web build
+    runs-on: ubuntu-latest
+    needs: analyze-and-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+      - run: flutter build web --release

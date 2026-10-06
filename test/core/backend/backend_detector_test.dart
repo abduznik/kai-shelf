@@ -9,6 +9,34 @@ import 'package:kai_shelf/core/backend/models.dart';
 void main() {
   group('BackendDetector', () {
     test(
+        'a real Komga (401 JSON on every unknown path) is not mistaken for '
+        'a BASIC_AUTH Suwayomi', () async {
+      // Captured from a live Komga: Spring Security answers /api/graphql
+      // and /api/Health with 401, while /api/v1/claim is open.
+      final client = MockClient((request) async {
+        if (request.url.path == '/api/v1/claim') {
+          return http.Response(jsonEncode({'isClaimed': true}), 200,
+              headers: {'content-type': 'application/json'});
+        }
+        return http.Response(
+            jsonEncode({
+              'timestamp': '2026-10-05T19:58:42.167+00:00',
+              'status': 401,
+              'error': 'Unauthorized',
+              'message': 'Unauthorized',
+              'path': request.url.path,
+            }),
+            401,
+            headers: {'content-type': 'application/json'});
+      });
+
+      final detector = BackendDetector(client: client);
+      final result = await detector.detect('http://example.com:25600');
+
+      expect(result!.type, BackendType.komga);
+    });
+
+    test(
         'identifies a Suwayomi server from the unauthenticated aboutServer GraphQL query',
         () async {
       final client = MockClient((request) async {

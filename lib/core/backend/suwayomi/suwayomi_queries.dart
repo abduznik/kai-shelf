@@ -126,6 +126,9 @@ class SuwayomiQueries {
           name
           lang
           iconUrl
+          displayName
+          supportsLatest
+          contentWarning
         }
       }
     }
@@ -178,6 +181,147 @@ class SuwayomiQueries {
       ) {
         chapter {
           id
+        }
+      }
+    }
+  ''';
+
+  static const _extensionFields = '''
+    pkgName
+    name
+    lang
+    versionName
+    iconUrl
+    isInstalled
+    hasUpdate
+    isObsolete
+    contentWarning
+    extensionStore {
+      name
+    }
+  ''';
+
+  static const extensionListQuery = '''
+    query ExtensionList {
+      extensions {
+        nodes {
+          $_extensionFields
+        }
+      }
+    }
+  ''';
+
+  /// Re-reads every repository index, then returns the refreshed list.
+  static const fetchExtensionsMutation = '''
+    mutation FetchExtensions {
+      fetchExtensions(input: {}) {
+        extensions {
+          $_extensionFields
+        }
+      }
+    }
+  ''';
+
+  static const updateExtensionMutation = r'''
+    mutation UpdateExtension($id: String!, $patch: UpdateExtensionPatchInput!) {
+      updateExtension(input: { id: $id, patch: $patch }) {
+        extension {
+          pkgName
+          isInstalled
+        }
+      }
+    }
+  ''';
+
+  static const extensionStoreListQuery = r'''
+    query ExtensionStores {
+      extensionStores {
+        nodes {
+          name
+          indexUrl
+        }
+      }
+    }
+  ''';
+
+  static const addExtensionStoreMutation = r'''
+    mutation AddExtensionStore($indexUrl: String!) {
+      addExtensionStore(input: { indexUrl: $indexUrl }) {
+        clientMutationId
+      }
+    }
+  ''';
+
+  static const removeExtensionStoreMutation = r'''
+    mutation RemoveExtensionStore($indexUrl: String!) {
+      removeExtensionStore(input: { indexUrl: $indexUrl }) {
+        clientMutationId
+      }
+    }
+  ''';
+
+  // Fields are aliased per filter kind because GraphQL rejects the same
+  // response key with different types across union fragments.
+  static const _filterLeaf = '''
+    __typename
+    ... on HeaderFilter { hName: name }
+    ... on SeparatorFilter { sName: name }
+    ... on TextFilter { tName: name textDefault: default }
+    ... on CheckBoxFilter { cName: name checkDefault: default }
+    ... on TriStateFilter { triName: name triDefault: default }
+    ... on SelectFilter { selName: name selDefault: default selValues: values }
+    ... on SortFilter { sortName: name sortDefault: default { index ascending } sortValues: values }
+  ''';
+
+  /// A source's filters in their default state. Groups are expanded three
+  /// levels deep, which covers every extension seen in the wild.
+  static const sourceFiltersQuery = '''
+    query SourceFilters(\$id: LongString!) {
+      source(id: \$id) {
+        filters {
+          $_filterLeaf
+          ... on GroupFilter {
+            gName: name
+            groupFilters: filters {
+              $_filterLeaf
+              ... on GroupFilter {
+                gName: name
+                groupFilters: filters {
+                  $_filterLeaf
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ''';
+
+  static const sourceBrowseMutation = r'''
+    mutation SourceBrowse($sourceId: LongString!, $type: FetchSourceMangaType!, $query: String, $page: Int!, $filters: [FilterChangeInput!]) {
+      fetchSourceManga(
+        input: { source: $sourceId, type: $type, query: $query, page: $page, filters: $filters }
+      ) {
+        mangas {
+          id
+          title
+          thumbnailUrl
+          description
+          genre
+          status
+          inLibrary
+        }
+        hasNextPage
+      }
+    }
+  ''';
+
+  static const removeMangaFromLibraryMutation = r'''
+    mutation RemoveMangaFromLibrary($id: Int!) {
+      updateManga(input: { id: $id, patch: { inLibrary: false } }) {
+        manga {
+          id
+          inLibrary
         }
       }
     }
