@@ -81,6 +81,7 @@ class SuwayomiQueries {
         genre
         status
         lastFetchedAt
+        inLibrary
       }
     }
   ''';
@@ -322,6 +323,45 @@ class SuwayomiQueries {
         manga {
           id
           inLibrary
+        }
+      }
+    }
+  ''';
+
+  /// Pulls a title's full metadata (description, genres, status) from its
+  /// source. Titles that only came from a source search have just a title
+  /// and cover until this runs.
+  static const fetchMangaMutation = r'''
+    mutation FetchManga($id: Int!) {
+      fetchManga(input: { id: $id }) {
+        manga {
+          id
+          title
+          thumbnailUrl
+          description
+          genre
+          status
+          lastFetchedAt
+          inLibrary
+        }
+      }
+    }
+  ''';
+
+  /// Fetches a title's chapter list from its source. Needed for titles
+  /// that aren't in the library, which have no chapters stored yet.
+  static const fetchChaptersMutation = r'''
+    mutation FetchChapters($mangaId: Int!) {
+      fetchChapters(input: { mangaId: $mangaId }) {
+        chapters {
+          id
+          mangaId
+          name
+          chapterNumber
+          uploadDate
+          isRead
+          lastPageRead
+          pageCount
         }
       }
     }

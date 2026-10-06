@@ -109,20 +109,54 @@ class _SourceFilterSheetState extends State<SourceFilterSheet> {
         ];
       case KsTriStateFilter():
         final state = change?.triState ?? filter.value;
+        final scheme = Theme.of(context).colorScheme;
+        // Both choices are always visible: many tag lists let you require
+        // a tag as well as hide it, and a tap-to-cycle row hides that.
         return [
-          ListTile(
-            dense: true,
-            title: Text(filter.name),
-            leading: Icon(switch (state) {
-              KsTriState.include => Icons.check_box,
-              KsTriState.exclude => Icons.indeterminate_check_box,
-              KsTriState.ignore => Icons.check_box_outline_blank,
-            }),
-            onTap: () => _set(KsFilterChange(
-              path: path,
-              triState: KsTriState
-                  .values[(state.index + 1) % KsTriState.values.length],
-            )),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    filter.name,
+                    style: TextStyle(
+                      color: switch (state) {
+                        KsTriState.include => Colors.green,
+                        KsTriState.exclude => scheme.error,
+                        KsTriState.ignore => null,
+                      },
+                      fontWeight: state == KsTriState.ignore
+                          ? FontWeight.normal
+                          : FontWeight.w600,
+                    ),
+                  ),
+                ),
+                SegmentedButton<KsTriState>(
+                  showSelectedIcon: false,
+                  style: const ButtonStyle(
+                      visualDensity: VisualDensity.compact,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap),
+                  segments: const [
+                    ButtonSegment(
+                        value: KsTriState.ignore,
+                        icon: Icon(Icons.remove, size: 16),
+                        tooltip: 'Any'),
+                    ButtonSegment(
+                        value: KsTriState.include,
+                        icon: Icon(Icons.add, size: 16),
+                        tooltip: 'Include'),
+                    ButtonSegment(
+                        value: KsTriState.exclude,
+                        icon: Icon(Icons.block, size: 16),
+                        tooltip: 'Exclude'),
+                  ],
+                  selected: {state},
+                  onSelectionChanged: (v) =>
+                      _set(KsFilterChange(path: path, triState: v.first)),
+                ),
+              ],
+            ),
           ),
         ];
       case KsSelectFilter():
@@ -187,13 +221,31 @@ class _SourceFilterSheetState extends State<SourceFilterSheet> {
           ),
         ];
       case KsGroupFilter():
-        // Counts non-default selections so a collapsed group still shows
-        // that something inside it is active.
-        final active =
-            _changes.keys.where((k) => k.startsWith('${_key(path)}/')).length;
+        // Summarises what's set inside, so a collapsed group still shows
+        // that something in it is active.
+        var included = 0, excluded = 0, other = 0;
+        for (final entry in _changes.entries) {
+          if (!entry.key.startsWith('${_key(path)}/')) continue;
+          switch (entry.value.triState) {
+            case KsTriState.include:
+              included++;
+            case KsTriState.exclude:
+              excluded++;
+            case KsTriState.ignore:
+              break;
+            case null:
+              other++;
+          }
+        }
+        final summary = [
+          if (included > 0) '+$included',
+          if (excluded > 0) '−$excluded',
+          if (other > 0) '$other set',
+        ].join(' ');
         return [
           ExpansionTile(
-            title: Text(active == 0 ? filter.name : '${filter.name} ($active)'),
+            title: Text(
+                summary.isEmpty ? filter.name : '${filter.name} ($summary)'),
             dense: true,
             children: [
               for (final c in filter.children) ..._build(c, path),

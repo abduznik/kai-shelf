@@ -178,31 +178,35 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               itemCount: items.length,
               separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemBuilder: (context, i) => SizedBox(
-                width: 100,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: items[i].coverUrl == null
-                            ? const ColoredBox(color: Colors.black12)
-                            : AuthenticatedImage(
-                                imageUrl: items[i].coverUrl!,
-                                headers: items[i].coverHeaders,
-                                fit: BoxFit.cover,
-                                errorWidget: (c, e) => const ColoredBox(
-                                    color: Colors.black12,
-                                    child: Icon(Icons.broken_image_outlined)),
-                              ),
+              itemBuilder: (context, i) => InkWell(
+                onTap: () => context.push('/manga/${items[i].id}'),
+                borderRadius: BorderRadius.circular(8),
+                child: SizedBox(
+                  width: 100,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: items[i].coverUrl == null
+                              ? const ColoredBox(color: Colors.black12)
+                              : AuthenticatedImage(
+                                  imageUrl: items[i].coverUrl!,
+                                  headers: items[i].coverHeaders,
+                                  fit: BoxFit.cover,
+                                  errorWidget: (c, e) => const ColoredBox(
+                                      color: Colors.black12,
+                                      child: Icon(Icons.broken_image_outlined)),
+                                ),
+                        ),
                       ),
-                    ),
-                    Text(items[i].title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.bodySmall),
-                  ],
+                      Text(items[i].title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall),
+                    ],
+                  ),
                 ),
               ),
             ),

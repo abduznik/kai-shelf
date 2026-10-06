@@ -77,6 +77,7 @@ class _AddServerScreenState extends ConsumerState<AddServerScreen> {
     }
 
     ref.read(activeConnectionProvider.notifier).state = result.connectionInfo;
+    await ref.read(sessionStoreProvider).save(result.connectionInfo!);
     setState(() => _isSubmitting = false);
 
     if (mounted) context.go('/library');

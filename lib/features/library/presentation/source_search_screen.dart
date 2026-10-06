@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/backend/models.dart';
 import '../../../core/backend/server_backend.dart';
@@ -257,7 +258,7 @@ class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
     final busy = _busyIds.contains(manga.id);
     final scheme = Theme.of(context).colorScheme;
     return InkWell(
-      onTap: busy ? null : () => _toggleLibrary(manga),
+      onTap: () => _openManga(manga),
       borderRadius: BorderRadius.circular(8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -280,21 +281,27 @@ class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
                       : Container(color: scheme.surfaceContainerHighest),
                 ),
                 Positioned(
-                  top: 6,
-                  right: 6,
-                  child: CircleAvatar(
-                    radius: 14,
-                    backgroundColor: scheme.surface.withValues(alpha: 0.9),
-                    child: busy
+                  top: 2,
+                  right: 2,
+                  child: IconButton(
+                    tooltip: manga.inLibrary
+                        ? 'Remove from library'
+                        : 'Add to library',
+                    visualDensity: VisualDensity.compact,
+                    style: IconButton.styleFrom(
+                      backgroundColor: scheme.surface.withValues(alpha: 0.9),
+                    ),
+                    onPressed: busy ? null : () => _toggleLibrary(manga),
+                    icon: busy
                         ? const SizedBox(
-                            width: 14,
-                            height: 14,
+                            width: 16,
+                            height: 16,
                             child: CircularProgressIndicator(strokeWidth: 2))
                         : Icon(
                             manga.inLibrary
                                 ? Icons.favorite
                                 : Icons.favorite_border,
-                            size: 16,
+                            size: 18,
                             color: manga.inLibrary
                                 ? scheme.primary
                                 : scheme.onSurface),
@@ -313,6 +320,37 @@ class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
     );
   }
 
+  /// Opens the title so it can be read before deciding to add it. On
+  /// return, picks up a library change made from the detail screen.
+  Future<void> _openManga(KsSourceManga manga) async {
+    await context.push('/manga/${manga.id}');
+    if (!mounted) return;
+    final raw = ref.read(activeBackendProvider);
+    if (raw == null) return;
+    try {
+      final detail = await raw.getMangaDetail(manga.id);
+      final index = _items.indexWhere((m) => m.id == manga.id);
+      if (index != -1 &&
+          mounted &&
+          _items[index].inLibrary != detail.inLibrary) {
+        setState(() =>
+            _items[index] = _withLibrary(_items[index], detail.inLibrary));
+      }
+    } catch (_) {
+      // Not worth interrupting browsing over.
+    }
+  }
+
+  KsSourceManga _withLibrary(KsSourceManga m, bool inLibrary) => KsSourceManga(
+        id: m.id,
+        title: m.title,
+        coverUrl: m.coverUrl,
+        coverHeaders: m.coverHeaders,
+        description: m.description,
+        genres: m.genres,
+        inLibrary: inLibrary,
+      );
+
   Future<void> _toggleLibrary(KsSourceManga manga) async {
     final backend = _backend;
     if (backend == null) return;
@@ -325,15 +363,7 @@ class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
       }
       final index = _items.indexWhere((m) => m.id == manga.id);
       if (index != -1 && mounted) {
-        setState(() => _items[index] = KsSourceManga(
-              id: manga.id,
-              title: manga.title,
-              coverUrl: manga.coverUrl,
-              coverHeaders: manga.coverHeaders,
-              description: manga.description,
-              genres: manga.genres,
-              inLibrary: !manga.inLibrary,
-            ));
+        setState(() => _items[index] = _withLibrary(manga, !manga.inLibrary));
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(

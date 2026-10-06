@@ -63,6 +63,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     queue.attachRepository(repository);
 
     final manga = await ref.read(mangaDetailProvider(widget.mangaId).future);
+    // Previews (opened from a source search, not in the library) are for
+    // reading only; don't write them to disk behind the user's back.
+    if (!manga.inLibrary) return;
 
     Future<void> enqueueChapter(KsChapter chapter) async {
       final alreadyDownloaded = repository != null &&

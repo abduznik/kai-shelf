@@ -7,6 +7,7 @@ import '../backend/models.dart';
 import '../backend/server_backend.dart';
 import '../backend/suwayomi/suwayomi_backend.dart';
 import '../storage/secure_credentials.dart';
+import '../storage/session_store.dart';
 
 /// Current active server connection, or null if no server is configured yet.
 /// This is the single source of truth for "which server + session is active."
@@ -42,3 +43,5 @@ final backendDetectorProvider = Provider<BackendDetector>((ref) {
 final secureCredentialsProvider = Provider<SecureCredentialsStore>((ref) {
   return SecureCredentialsStore();
 });
+
+final sessionStoreProvider = Provider<SessionStore>((ref) => SessionStore());

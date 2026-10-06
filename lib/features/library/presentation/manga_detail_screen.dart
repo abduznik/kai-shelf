@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/backend/models.dart';
+import '../../../core/backend/server_backend.dart';
 import '../../../core/download/download_queue.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../../core/providers/chapter_sort_provider.dart';
@@ -26,6 +27,21 @@ class MangaDetailScreen extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Manga'),
         actions: [
+          mangaAsync.maybeWhen(
+            data: (manga) =>
+                ref.watch(activeBackendProvider) is SourceCapableBackend
+                    ? IconButton(
+                        tooltip: manga.inLibrary
+                            ? 'Remove from library'
+                            : 'Add to library',
+                        icon: Icon(manga.inLibrary
+                            ? Icons.favorite
+                            : Icons.favorite_border),
+                        onPressed: () => _toggleLibrary(context, ref, manga),
+                      )
+                    : const SizedBox.shrink(),
+            orElse: () => const SizedBox.shrink(),
+          ),
           IconButton(
             tooltip: sortOrder == ChapterSortOrder.descending
                 ? 'Newest first'
@@ -70,6 +86,20 @@ class MangaDetailScreen extends ConsumerWidget {
       body: mangaAsync.when(
         data: (manga) => CustomScrollView(
           slivers: [
+            if (!manga.inLibrary)
+              SliverToBoxAdapter(
+                child: MaterialBanner(
+                  content: const Text(
+                      'Previewing. Add it to your library to track progress '
+                      'and download chapters.'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => _toggleLibrary(context, ref, manga),
+                      child: const Text('Add to library'),
+                    ),
+                  ],
+                ),
+              ),
             SliverToBoxAdapter(child: _MangaHeader(manga: manga)),
             chaptersAsync.when(
               data: (chapters) {
@@ -156,6 +186,27 @@ class MangaDetailScreen extends ConsumerWidget {
       ..sort((a, b) => a.chapterNumber.compareTo(b.chapterNumber));
     if (order == ChapterSortOrder.descending) return sorted.reversed.toList();
     return sorted;
+  }
+
+  Future<void> _toggleLibrary(
+      BuildContext context, WidgetRef ref, KsManga manga) async {
+    final backend = ref.read(activeBackendProvider);
+    if (backend is! SourceCapableBackend) return;
+    final capable = backend as SourceCapableBackend;
+    try {
+      if (manga.inLibrary) {
+        await capable.removeFromLibrary(manga.id);
+      } else {
+        await capable.addToLibrary(manga.id);
+      }
+      ref.invalidate(mangaDetailProvider(mangaId));
+      ref.invalidate(libraryListProvider);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Failed: $e')));
+      }
+    }
   }
 
   Future<void> _toggleRead(WidgetRef ref, KsChapter chapter) async {

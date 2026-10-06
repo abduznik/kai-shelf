@@ -5,6 +5,10 @@
 
 Writes assets/icon.png (1024px, opaque), assets/icon_foreground.png (transparent,
 for adaptive icons) and assets/logo.txt (the picoCAD 2 project, openable in the editor).
+
+Design: one big open manga volume, comic panels on the left page and a bold
+"K" panel on the right, on a round badge. Flat saturated colours so it
+reads at 48px.
 """
 import os
 import sys
@@ -22,47 +26,70 @@ CHERRY_DK, CHERRY, NAVY, BLUE, SKY, GREEN_DK, GREEN, GREY, SILVER = 7, 8, 9, 10,
 p = Project(palette=MOB)
 t = p.texture
 
-# Spine labels: a pixel "K" on the tallest book, bands on the others.
-k_spine = t.alloc(16, 32, fill=CHERRY)
-t.fill(k_spine.sub(0, 0, 16, 3), GOLD)
-t.fill(k_spine.sub(0, 29, 16, 3), GOLD)
-for row, bits in enumerate(["1001", "1010", "1100", "1100", "1010", "1001"]):
-    for col, b in enumerate(bits):
-        if b == "1":
-            t.fill(k_spine.sub(4 + col * 2, 10 + row * 2, 2, 2), CREAM)
+PW, PH = 48, 64  # page texture size (px)
 
-band = t.alloc(16, 32, fill=BLUE)
-t.fill(band.sub(0, 4, 16, 2), SKY)
-t.fill(band.sub(0, 26, 16, 2), SKY)
-band2 = t.alloc(16, 32, fill=GREEN)
-t.fill(band2.sub(0, 6, 16, 3), CREAM)
-t.fill(band2.sub(0, 23, 16, 3), CREAM)
-pages = t.alloc(8, 8, fill=CREAM)
+
+def panel(page, x, y, w, h, fill):
+    t.fill(page.sub(x, y, w, h), INK)
+    t.fill(page.sub(x + 1, y + 1, w - 2, h - 2), fill)
+    return page.sub(x + 1, y + 1, w - 2, h - 2)
+
+
+# ---- left page: three comic panels
+left = t.alloc(PW, PH, fill=CREAM)
+a = panel(left, 3, 3, 42, 24, SKY)
+t.circle(a.x + 30, a.y + 8, 5, GOLD_HI)               # sun
+t.fill(a.sub(0, 16, a.w, 6), GREEN)                   # ground
+b = panel(left, 3, 30, 20, 31, CHERRY)
+t.fill(b.sub(3, 4, 12, 10), CREAM)                    # speech bubble
+t.fill(b.sub(5, 14, 4, 3), CREAM)                     # its tail
+c = panel(left, 26, 30, 19, 31, GOLD)
+t.circle(c.x + 9, c.y + 15, 6, CHERRY)
+t.circle(c.x + 9, c.y + 15, 3, CREAM)
+
+# ---- right page: a big pixel K
+right = t.alloc(PW, PH, fill=CREAM)
+k = panel(right, 3, 3, 42, 58, NAVY)
+# Thick K: a stem plus two arms, drawn pixel by pixel as distance-to-segment.
+def seg_dist(px, py, ax, ay, bx, by):
+    dx, dy = bx - ax, by - ay
+    u = max(0.0, min(1.0, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)))
+    return ((px - ax - u * dx) ** 2 + (py - ay - u * dy) ** 2) ** 0.5
+
+
+kw_, kh_ = 28, 42
+ox, oy = k.x + (k.w - kw_) // 2, k.y + (k.h - kh_) // 2
+for y in range(kh_):
+    for x in range(kw_):
+        inside = (
+            x < 9
+            or seg_dist(x, y, 9, kh_ / 2, kw_, 0) <= 4.6
+            or seg_dist(x, y, 9, kh_ / 2, kw_, kh_) <= 4.6
+        )
+        if inside:
+            t.pset(ox + x, oy + y, GOLD_HI)
 
 m = Mesh()
-# shelf plank
-m.box((6.4, 0.5, 1.8), center=(0, -0.25, 0), color=BROWN, colors={"top": GOLD_DIM})
-# books, front (+z) faces carry the spine art
-def book(x, w, h, spine, tilt=0.0, color=CHERRY):
-    m.box((w, h, 1.3), center=(x, h / 2, 0), color=color, rot=(0, 0, tilt),
-          tex={"front": spine}, colors={"top": CREAM, "back": color})
-
-book(-1.7, 0.9, 2.5, band, color=BLUE)
-book(-0.6, 1.2, 3.3, k_spine, color=CHERRY)
-book(0.6, 0.9, 2.8, band2, color=GREEN)
-book(1.75, 0.9, 2.2, band, tilt=-14, color=NAVY)
+# cover (cherry) and spine
+m.box((5.5, 0.34, 3.9), center=(0, -0.2, 0), color=CHERRY, colors={"top": CHERRY_DK})
+# page blocks, tilted down toward the spine
+m.box((2.4, 0.34, 3.5), center=(-1.22, 0.1, 0), rot=(0, 0, -7), color=CREAM, tex={"top": left})
+m.box((2.4, 0.34, 3.5), center=(1.22, 0.1, 0), rot=(0, 0, 7), color=CREAM, tex={"top": right})
 
 p.add("logo", m)
 os.makedirs(OUT, exist_ok=True)
 p.save(os.path.join(OUT, "logo.txt"))
 
-kw = dict(size=256, scale=4, yaw=-18, pitch=14, fit=0.92)
+kw = dict(size=256, scale=4, yaw=0, pitch=62, fov=14, fit=0.80)
 fg = render(p, background=None, outline=1, **kw)
 fg.save(os.path.join(OUT, "icon_foreground.png"))
 
 from PIL import Image  # noqa: E402
-bg = Image.new("RGBA", fg.size, tuple(MOB.rgb(GOLD_DIM)) + (255,))
-# a lighter inner tile so the icon reads as a rounded app tile
+from PIL import ImageDraw  # noqa: E402
+bg = Image.new("RGBA", fg.size, tuple(MOB.rgb(BLUE)) + (255,))
+d = ImageDraw.Draw(bg)
+w = fg.size[0]
+d.ellipse([w * 0.06, w * 0.06, w * 0.94, w * 0.94], fill=tuple(MOB.rgb(SKY)) + (255,))
 bg.alpha_composite(fg)
 bg.save(os.path.join(OUT, "icon.png"))
 print("wrote", os.path.abspath(OUT))
