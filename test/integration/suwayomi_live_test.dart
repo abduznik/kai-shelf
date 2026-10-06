@@ -92,6 +92,30 @@ void main() {
     );
     expect(result.items, isNotEmpty);
 
+    // Preview: read a title straight from search, without adding it.
+    final plain = await backend.browseSource(en.id,
+        mode: SourceBrowseMode.search, query: 'one piece');
+    // Plenty of MangaDex titles and chapters are external links with no
+    // readable pages, so search for the first pair that has some.
+    KsSourceManga? preview;
+    List<KsPage> pages = [];
+    outer:
+    for (final m in plain.items.where((m) => !m.inLibrary).take(8)) {
+      final chapters = await backend.getChapters(m.id);
+      for (final c in chapters.take(5)) {
+        pages = await backend.getPages(c.id);
+        if (pages.isNotEmpty) {
+          preview = m;
+          break outer;
+        }
+      }
+    }
+    expect(preview, isNotNull, reason: 'no previewable title found');
+    final detail = await backend.getMangaDetail(preview!.id);
+    expect(detail.inLibrary, isFalse);
+    expect(detail.description, isNotEmpty);
+    expect((await backend.getMangaDetail(preview.id)).inLibrary, isFalse);
+
     await backend.uninstallExtension(mangadex);
     final after = (await backend.getExtensions())
         .firstWhere((e) => e.pkgName == mangadex);

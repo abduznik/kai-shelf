@@ -14,7 +14,7 @@
   <img src="https://img.shields.io/badge/platforms-Android%20%7C%20iOS%20%7C%20Windows%20%7C%20Web-lightgrey?style=flat-square" alt="Platforms">
   <a href="https://github.com/abduznik/kai-shelf/stargazers"><img src="https://img.shields.io/github/stars/abduznik/kai-shelf?style=flat-square" alt="Stars"></a>
   <a href="https://github.com/abduznik/kai-shelf/issues"><img src="https://img.shields.io/github/issues/abduznik/kai-shelf?style=flat-square" alt="Issues"></a>
-  <a href="https://github.com/sponsors/abduznik"><img src="https://img.shields.io/badge/Sponsor-❤️-ea4aaa?style=flat-square" alt="Sponsor"></a>
+  <a href="https://github.com/sponsors/abduznik"><img src="https://img.shields.io/badge/Sponsor-ea4aaa?style=flat-square" alt="Sponsor"></a>
 </p>
 
 <p align="center">
@@ -47,25 +47,27 @@ Currently supports **[Suwayomi-Server](https://github.com/Suwayomi/Suwayomi-Serv
 
 ## Features
 
-- 📚 **Library Management** — Browse, search, filter, and organize your manga collection
-- 📖 **Beautiful Reader** — Vertical scroll, paged mode, and custom reading directions
-- 🔄 **Sync & Updates** — Automatic chapter update checks, reading progress sync
-- ⬇️ **Offline Reading** — Download chapters for reading without a connection
-- 🔌 **Extension Manager** — Add extension repositories, then install, update and remove extensions; filter by status, language and content rating
-- 🔎 **Source Search & Filters** — Browse any source's Popular/Latest listings, search it, and narrow results with the source's own filters (genres, status, sort, tags…); search all sources at once
-- 🗂️ **Library Filters** — Sort and filter by status and genre (include or exclude), on top of title search
-- 🌙 **Dark & Light Themes** — Adaptive themes that follow your system settings
-- 📱 **Cross-Platform** — One codebase, native feel on Android, iOS, Windows, and Web
-- ⚡ **Fast & Lightweight** — Flutter native performance, no Electron overhead
-- 🔒 **Private by Design** — Connects directly to your server, no telemetry, no accounts
+- **Library Management** — Browse, search, filter, and organize your manga collection
+- **Beautiful Reader** — Vertical scroll, paged mode, and custom reading directions
+- **Sync & Updates** — Automatic chapter update checks, reading progress sync
+- **Offline Reading** — Download chapters for reading without a connection
+- **Extension Manager** — Add extension repositories, then install, update and remove extensions; filter by status, language and content rating
+- **Source Search & Filters** — Browse any source's Popular/Latest listings, search it, and narrow results with the source's own filters (genres, status, sort, tags…); search all sources at once
+- **Preview Before Adding** — Open any search result to read its details and chapters, and even read it, without adding it to your library first
+- **Stays Signed In** — Your server connection is remembered securely between launches
+- **Library Filters** — Sort and filter by status and genre (include or exclude), on top of title search
+- **Dark & Light Themes** — Adaptive themes that follow your system settings
+- **Cross-Platform** — One codebase, native feel on Android, iOS, Windows, and Web
+- **Fast & Lightweight** — Flutter native performance, no Electron overhead
+- **Private by Design** — Connects directly to your server, no telemetry, no accounts
 
 ## Supported Servers
 
 | Server | Status | Notes |
 |--------|--------|-------|
-| [Suwayomi-Server](https://github.com/Suwayomi/Suwayomi-Server) | ✅ Supported | GraphQL API, extensions, full library |
-| [Komga](https://github.com/gotson/komga) | ✅ Supported | REST API; email/password or API key. Tested against Komga 1.28 |
-| [Kavita](https://github.com/Kareadita/Kavita) | ✅ Supported | REST API; API key. Tested against Kavita 0.9 |
+| [Suwayomi-Server](https://github.com/Suwayomi/Suwayomi-Server) | Supported | GraphQL API, extensions, full library |
+| [Komga](https://github.com/gotson/komga) | Supported | REST API; email/password or API key. Tested against Komga 1.28 |
+| [Kavita](https://github.com/Kareadita/Kavita) | Supported | REST API; API key. Tested against Kavita 0.9 |
 
 Don't see your server? [Open an issue](https://github.com/abduznik/kai-shelf/issues) — we prioritize by demand.
 
@@ -153,5 +155,5 @@ Built on the shoulders of:
 ---
 
 <p align="center">
-  <a href="https://github.com/sponsors/abduznik"><img src="https://img.shields.io/badge/Sponsor_Kai--Shelf-❤️-ea4aaa?style=for-the-badge" alt="Sponsor"></a>
+  <a href="https://github.com/sponsors/abduznik"><img src="https://img.shields.io/badge/Sponsor_Kai--Shelf-ea4aaa?style=for-the-badge" alt="Sponsor"></a>
 </p>

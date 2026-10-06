@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:kai_shelf/main.dart';
@@ -8,6 +9,7 @@ void main() {
   testWidgets('KaiShelfApp boots to the add-server screen with bottom nav', (
     WidgetTester tester,
   ) async {
+    FlutterSecureStorage.setMockInitialValues({});
     await tester.pumpWidget(const ProviderScope(child: KaiShelfApp()));
     await tester.pumpAndSettle();
 

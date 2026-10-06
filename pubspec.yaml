@@ -1,7 +1,7 @@
 name: kai_shelf
 description: A cross-platform Flutter manga & comics reader for self-hosted servers — Suwayomi, Komga, Kavita & more.
 publish_to: 'none'
-version: 1.0.0+5
+version: 1.1.0+6
 
 environment:
   sdk: ^3.5.0

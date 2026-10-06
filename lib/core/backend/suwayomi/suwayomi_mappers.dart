@@ -51,6 +51,7 @@ class SuwayomiMappers {
           ? DateTime.fromMillisecondsSinceEpoch(
               int.parse(json['lastFetchedAt'].toString()))
           : null,
+      inLibrary: json['inLibrary'] as bool? ?? true,
       backendExtra: json,
     );
   }

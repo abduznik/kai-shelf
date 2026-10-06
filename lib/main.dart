@@ -1,17 +1,48 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/providers/backend_providers.dart';
 import 'core/router/app_router.dart';
 
 void main() {
   runApp(const ProviderScope(child: KaiShelfApp()));
 }
 
-class KaiShelfApp extends StatelessWidget {
+class KaiShelfApp extends ConsumerStatefulWidget {
   const KaiShelfApp({super.key});
 
   @override
+  ConsumerState<KaiShelfApp> createState() => _KaiShelfAppState();
+}
+
+class _KaiShelfAppState extends ConsumerState<KaiShelfApp> {
+  bool _restoring = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _restoreSession();
+  }
+
+  /// Signs back in with the saved connection, so reopening the app lands
+  /// on the library instead of the connect screen.
+  Future<void> _restoreSession() async {
+    final restored = await ref.read(sessionStoreProvider).restore();
+    if (restored != null) {
+      ref.read(activeConnectionProvider.notifier).state = restored;
+      appRouter.go('/library');
+    }
+    if (mounted) setState(() => _restoring = false);
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_restoring) {
+      return const MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: Scaffold(body: Center(child: CircularProgressIndicator())),
+      );
+    }
     return MaterialApp.router(
       title: 'Kai-Shelf',
       debugShowCheckedModeBanner: false,

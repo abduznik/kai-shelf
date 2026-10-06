@@ -201,12 +201,32 @@ class SuwayomiBackend
       ),
     );
     _throwIfAuthError(result);
+    final json = result.data!['manga'] as Map<String, dynamic>;
+
+    // A title opened straight from a source search has no description or
+    // genres stored yet; pull them from the source so it can be read as
+    // a preview without adding it to the library first.
+    if (json['inLibrary'] != true && json['description'] == null) {
+      final fetched = await _client.mutate(
+        MutationOptions(
+          document: gql(SuwayomiQueries.fetchMangaMutation),
+          variables: {'id': int.parse(mangaId)},
+          fetchPolicy: FetchPolicy.noCache,
+        ),
+      );
+      final fetchedJson = fetched.data?['fetchManga']?['manga'];
+      if (!fetched.hasException && fetchedJson is Map) {
+        return SuwayomiMappers.mangaFromJson(
+          fetchedJson.cast<String, dynamic>(),
+          buildImageUrl: buildImageUrl,
+          coverHeaders: _coverHeaders,
+        );
+      }
+    }
     return SuwayomiMappers.mangaFromJson(
-      result.data!['manga'] as Map<String, dynamic>,
+      json,
       buildImageUrl: buildImageUrl,
-      coverHeaders: _connectionInfo.extraHeaders.isEmpty
-          ? null
-          : _connectionInfo.extraHeaders,
+      coverHeaders: _coverHeaders,
     );
   }
 
@@ -221,7 +241,28 @@ class SuwayomiBackend
     );
     _throwIfAuthError(result);
 
-    final nodes = result.data?['chapters']?['nodes'] as List? ?? [];
+    var nodes = result.data?['chapters']?['nodes'] as List? ?? [];
+
+    // Nothing stored yet means a title that was never added to the library
+    // (or never refreshed): ask the source for its chapters.
+    if (nodes.isEmpty) {
+      final fetched = await _client.mutate(
+        MutationOptions(
+          document: gql(SuwayomiQueries.fetchChaptersMutation),
+          variables: {'mangaId': int.parse(mangaId)},
+          fetchPolicy: FetchPolicy.noCache,
+        ),
+      );
+      _throwIfAuthError(fetched);
+      // The server raises "No chapters found" for a title whose source has
+      // none (common for licensed or external-only entries). That's just an
+      // empty list, not a failure worth showing.
+      final noChapters = fetched.exception?.graphqlErrors
+              .any((e) => e.message.contains('No chapters found')) ??
+          false;
+      if (!noChapters) _throwIfError(fetched);
+      nodes = fetched.data?['fetchChapters']?['chapters'] as List? ?? [];
+    }
     return nodes
         .map((n) => SuwayomiMappers.chapterFromJson(n as Map<String, dynamic>))
         .toList();

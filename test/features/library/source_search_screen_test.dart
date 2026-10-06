@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:kai_shelf/core/backend/models.dart';
 import 'package:kai_shelf/core/providers/backend_providers.dart';
 import 'package:kai_shelf/features/library/presentation/source_search_screen.dart';
@@ -68,7 +69,7 @@ void main() {
     await _settle(tester);
     await tester.tap(find.text('Genres'));
     await _settle(tester);
-    await tester.tap(find.text('Drama')); // ignore -> include
+    await tester.tap(find.byTooltip('Include').at(1)); // Drama
     await _settle(tester);
     await tester.tap(find.text('Apply'));
     await _settle(tester);
@@ -79,20 +80,47 @@ void main() {
     expect(change.triState, KsTriState.include);
   });
 
-  testWidgets('tapping a result adds it to the library and toggles back',
-      (tester) async {
+  testWidgets('the heart adds to the library and toggles back', (tester) async {
     final b = FakeCatalogBackend();
     await tester.pumpWidget(_app(b));
     await _settle(tester);
 
-    await tester.tap(find.text('Title 1'));
+    await tester.tap(find.byTooltip('Add to library').at(1));
     await _settle(tester);
     expect(b.calls, contains('add:m1'));
     expect(find.byIcon(Icons.favorite), findsOneWidget);
 
-    await tester.tap(find.text('Title 1'));
+    await tester.tap(find.byTooltip('Remove from library'));
     await _settle(tester);
     expect(b.calls, contains('remove:m1'));
     expect(find.byIcon(Icons.favorite), findsNothing);
+  });
+
+  testWidgets('tapping a result opens it without adding to the library',
+      (tester) async {
+    final b = FakeCatalogBackend();
+    final router = GoRouter(routes: [
+      GoRoute(
+        path: '/',
+        builder: (_, __) =>
+            const SourceSearchScreen(sourceId: '1', sourceName: 'Alpha'),
+      ),
+      GoRoute(
+        path: '/manga/:id',
+        builder: (_, state) =>
+            Scaffold(body: Text('detail ${state.pathParameters['id']}')),
+      ),
+    ]);
+    await tester.pumpWidget(ProviderScope(
+      overrides: [activeBackendProvider.overrideWithValue(b)],
+      child: MaterialApp.router(routerConfig: router),
+    ));
+    await _settle(tester);
+
+    await tester.tap(find.text('Title 2'));
+    await _settle(tester);
+
+    expect(find.text('detail m2'), findsOneWidget);
+    expect(b.calls.where((c) => c.startsWith('add:')), isEmpty);
   });
 }

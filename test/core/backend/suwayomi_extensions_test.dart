@@ -251,4 +251,100 @@ void main() {
     expect((filters[4] as KsSelectFilter).selected, 1);
     expect((filters[5] as KsTextFilter).value, 'z');
   });
+
+  test('chapters of a title not in the library are fetched from its source',
+      () async {
+    final log = <Map<String, dynamic>>[];
+    final backend = _backend((q, v) {
+      if (q.contains('fetchChapters')) {
+        return {
+          'data': {
+            'fetchChapters': {
+              'chapters': [
+                {
+                  'id': 5,
+                  'mangaId': 9,
+                  'name': 'Ch.1',
+                  'chapterNumber': 1.0,
+                  'isRead': false,
+                }
+              ]
+            }
+          }
+        };
+      }
+      return {
+        'data': {
+          'chapters': {'nodes': []}
+        }
+      };
+    }, log: log);
+
+    final chapters = await backend.getChapters('9');
+    expect(chapters.single.title, 'Ch.1');
+    expect(
+        log.map((l) => l['query'] as String).last, contains('fetchChapters'));
+  });
+
+  test(
+      'a title with no stored details gets them fetched, and reports '
+      'that it is not in the library', () async {
+    final backend = _backend((q, v) {
+      if (q.contains('fetchManga')) {
+        return {
+          'data': {
+            'fetchManga': {
+              'manga': {
+                'id': 9,
+                'title': 'One Piece',
+                'description': 'Pirates.',
+                'genre': ['Action'],
+                'status': 'ONGOING',
+                'inLibrary': false,
+              }
+            }
+          }
+        };
+      }
+      return {
+        'data': {
+          'manga': {
+            'id': 9,
+            'title': 'One Piece',
+            'description': null,
+            'genre': [],
+            'status': 'UNKNOWN',
+            'inLibrary': false,
+          }
+        }
+      };
+    });
+    final manga = await backend.getMangaDetail('9');
+    expect(manga.description, 'Pirates.');
+    expect(manga.genres, ['Action']);
+    expect(manga.inLibrary, isFalse);
+  });
+
+  test(
+      'a title whose source has no chapters yields an empty list, not an error',
+      () async {
+    final backend = _backend((q, v) {
+      if (q.contains('fetchChapters')) {
+        return {
+          'errors': [
+            {
+              'message':
+                  'Exception while fetching data (/fetchChapters) : No chapters found'
+            }
+          ]
+        };
+      }
+      return {
+        'data': {
+          'chapters': {'nodes': []}
+        }
+      };
+    });
+    expect(await backend.getChapters('9'), isEmpty);
+  });
 }

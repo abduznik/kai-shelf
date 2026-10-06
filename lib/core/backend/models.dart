@@ -28,6 +28,7 @@ class KsManga {
     this.genres = const [],
     this.status = MangaStatus.unknown,
     this.lastUpdated,
+    this.inLibrary = true,
     this.backendExtra = const {},
   });
 
@@ -44,6 +45,10 @@ class KsManga {
   final List<String> genres;
   final MangaStatus status;
   final DateTime? lastUpdated;
+
+  /// False for a title opened from a source search that hasn't been added
+  /// to the library yet (it can still be read, just not tracked).
+  final bool inLibrary;
 
   /// Escape hatch for backend-specific fields that don't warrant a shared field.
   final Map<String, dynamic> backendExtra;
@@ -179,6 +184,31 @@ class ServerConnectionInfo {
   final String? refreshToken;
   final String? apiKey;
   final Map<String, String> extraHeaders;
+
+  Map<String, dynamic> toJson() => {
+        'serverId': serverId,
+        'displayName': displayName,
+        'baseUrl': baseUrl.toString(),
+        'type': type.name,
+        'sessionToken': sessionToken,
+        'refreshToken': refreshToken,
+        'apiKey': apiKey,
+        'extraHeaders': extraHeaders,
+      };
+
+  factory ServerConnectionInfo.fromJson(Map<String, dynamic> json) {
+    return ServerConnectionInfo(
+      serverId: json['serverId'] as String,
+      displayName: json['displayName'] as String,
+      baseUrl: Uri.parse(json['baseUrl'] as String),
+      type: BackendType.values.byName(json['type'] as String),
+      sessionToken: json['sessionToken'] as String?,
+      refreshToken: json['refreshToken'] as String?,
+      apiKey: json['apiKey'] as String?,
+      extraHeaders:
+          (json['extraHeaders'] as Map?)?.cast<String, String>() ?? const {},
+    );
+  }
 
   ServerConnectionInfo copyWith({
     String? sessionToken,

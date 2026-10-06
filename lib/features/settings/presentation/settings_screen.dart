@@ -38,6 +38,19 @@ class SettingsScreen extends ConsumerWidget {
               title:
                   Text('Connect to a server to manage sources and extensions.'),
             ),
+          if (backend != null)
+            ListTile(
+              leading: const Icon(Icons.logout),
+              title: const Text('Disconnect'),
+              subtitle: Text(
+                  ref.watch(activeConnectionProvider)?.baseUrl.toString() ??
+                      ''),
+              onTap: () async {
+                await ref.read(sessionStoreProvider).clear();
+                ref.read(activeConnectionProvider.notifier).state = null;
+                if (context.mounted) context.go('/');
+              },
+            ),
           const Divider(),
           const AboutListTile(
             icon: Icon(Icons.info_outline),
