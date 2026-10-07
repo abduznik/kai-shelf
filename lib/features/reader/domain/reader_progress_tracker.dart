@@ -22,13 +22,16 @@ class ReaderProgressTracker {
   final Duration debounceDuration;
 
   Timer? _debounce;
+  int? _pendingPage;
 
   void onPageChanged(int pageIndex) {
     _debounce?.cancel();
+    _pendingPage = pageIndex;
     _debounce = Timer(debounceDuration, () => _persist(pageIndex));
   }
 
   Future<void> _persist(int pageIndex) async {
+    _pendingPage = null;
     final isLastPage = totalPages > 0 && pageIndex >= totalPages - 1;
     await onSaveLocal(read: isLastPage, lastPageRead: pageIndex.toDouble());
 
@@ -39,6 +42,16 @@ class ReaderProgressTracker {
       // Best-effort: local progress is already saved; server sync can
       // retry next time this chapter is opened while online.
     }
+  }
+
+  /// Persists a page change still waiting out its debounce. Without this,
+  /// closing the reader (or hopping to the next chapter) within the debounce
+  /// window would drop the final position, including the "read" mark.
+  void flush() {
+    final page = _pendingPage;
+    if (page == null) return;
+    _debounce?.cancel();
+    _persist(page);
   }
 
   void dispose() {
