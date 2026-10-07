@@ -10,7 +10,8 @@ import 'komga_mappers.dart';
 /// Komga adapter — REST API, HTTP Basic Auth (email+password) or an
 /// X-API-Key header, both accepted simultaneously per Komga's OpenAPI spec
 /// (no session cookie exchange needed for API clients).
-class KomgaBackend implements ServerBackend, CategoryCapableBackend {
+class KomgaBackend
+    implements ServerBackend, CategoryCapableBackend, HistoryCapableBackend {
   KomgaBackend(ServerConnectionInfo connectionInfo, {http.Client? httpClient})
       : _connectionInfo = connectionInfo,
         _client = httpClient ?? http.Client();
@@ -192,6 +193,36 @@ class KomgaBackend implements ServerBackend, CategoryCapableBackend {
       }),
     );
     _throwIfAuthError(response);
+  }
+
+  /// Books that have any read progress (in progress or completed), ordered
+  /// by when that progress was last written. `read_status` is repeated
+  /// rather than comma-joined, which is what the endpoint's own docs use.
+  @override
+  Future<List<KsHistoryEntry>> getHistory(
+      {int limit = 50, int offset = 0}) async {
+    // Komga pages by page index, so [offset] must be a multiple of [limit].
+    final uri = _connectionInfo.baseUrl.replace(
+      path: '/api/v1/books',
+      queryParameters: {
+        'read_status': ['READ', 'IN_PROGRESS'],
+        'sort': 'readProgress.lastModified,desc',
+        'size': '$limit',
+        'page': '${offset ~/ limit}',
+      },
+    );
+    final response = await _client.get(uri, headers: _authHeaders);
+    _throwIfAuthError(response);
+    final content =
+        (jsonDecode(response.body) as Map<String, dynamic>)['content'] as List;
+    return content
+        .map((json) => KomgaMappers.historyEntryFromJson(
+              json as Map<String, dynamic>,
+              buildImageUrl: buildImageUrl,
+              coverHeaders: _authHeaders.isEmpty ? null : _authHeaders,
+            ))
+        .whereType<KsHistoryEntry>()
+        .toList();
   }
 
   @override

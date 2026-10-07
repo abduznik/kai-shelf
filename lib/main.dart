@@ -2,10 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/providers/backend_providers.dart';
+import 'core/providers/incognito_provider.dart';
 import 'core/router/app_router.dart';
 
-void main() {
-  runApp(const ProviderScope(child: KaiShelfApp()));
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final incognito = await loadIncognitoFlag();
+  runApp(ProviderScope(
+    overrides: [incognitoInitialProvider.overrideWithValue(incognito)],
+    child: const KaiShelfApp(),
+  ));
 }
 
 class KaiShelfApp extends ConsumerStatefulWidget {

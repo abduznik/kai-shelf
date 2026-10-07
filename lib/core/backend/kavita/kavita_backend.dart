@@ -11,7 +11,8 @@ import 'kavita_mappers.dart';
 /// pair via /api/Plugin/authenticate, then sent as a Bearer token on every
 /// subsequent request. Series > Volumes > Chapters hierarchy is flattened:
 /// each KsChapter maps to one Kavita ChapterDto.
-class KavitaBackend implements ServerBackend, CategoryCapableBackend {
+class KavitaBackend
+    implements ServerBackend, CategoryCapableBackend, HistoryCapableBackend {
   KavitaBackend(ServerConnectionInfo connectionInfo, {http.Client? httpClient})
       : _connectionInfo = connectionInfo,
         _client = httpClient ?? http.Client();
@@ -478,6 +479,69 @@ class KavitaBackend implements ServerBackend, CategoryCapableBackend {
     final uri = Uri.parse(pathOrId);
     return _connectionInfo.baseUrl
         .replace(path: uri.path, queryParameters: uri.queryParameters);
+  }
+
+  /// At most this many recently read series are expanded into chapters.
+  static const _historySeriesCap = 25;
+
+  /// Kavita has no per-chapter "recently read" feed (the stats history
+  /// endpoint stays empty for API-driven progress, confirmed against a live
+  /// server), but every ChapterDto carries `lastReadingProgressUtc`. So:
+  /// take the series whose `latestReadDate` is set, newest first, expand the
+  /// top few into their chapters, and sort the chapters by that timestamp.
+  /// The series cap bounds the request count; chapters from series beyond it
+  /// are older than everything shown.
+  @override
+  Future<List<KsHistoryEntry>> getHistory(
+      {int limit = 50, int offset = 0}) async {
+    final read = <Map<String, dynamic>>[];
+    for (var page = 1;; page++) {
+      final response = await _client.post(
+        _uri('/api/Series/v2', {
+          'PageNumber': '$page',
+          'PageSize': '$_pageSize',
+        }),
+        headers: {..._authHeaders, 'Content-Type': 'application/json'},
+        body: jsonEncode({}),
+      );
+      _throwIfAuthError(response);
+      final batch =
+          (jsonDecode(response.body) as List).cast<Map<String, dynamic>>();
+      read.addAll(batch
+          .where((s) => KavitaMappers.parseUtc(s['latestReadDate']) != null));
+      if (batch.length < _pageSize) break;
+    }
+    read.sort((a, b) => KavitaMappers.parseUtc(b['latestReadDate'])!
+        .compareTo(KavitaMappers.parseUtc(a['latestReadDate'])!));
+
+    final perSeries = await Future.wait(read.take(_historySeriesCap).map(
+      (series) async {
+        final response = await _client.get(
+          _uri('/api/Series/volumes', {'seriesId': series['id'].toString()}),
+          headers: _authHeaders,
+        );
+        _throwIfAuthError(response);
+        final entries = <KsHistoryEntry>[];
+        for (final volume in jsonDecode(response.body) as List) {
+          final volumeJson = volume as Map<String, dynamic>;
+          for (final chapter in volumeJson['chapters'] as List? ?? []) {
+            final entry = KavitaMappers.historyEntryFromJson(
+              chapter as Map<String, dynamic>,
+              series: series,
+              volume: volumeJson,
+              buildImageUrl: buildImageUrl,
+              coverHeaders: _authHeaders.isEmpty ? null : _authHeaders,
+            );
+            if (entry != null) entries.add(entry);
+          }
+        }
+        return entries;
+      },
+    ));
+
+    final all = perSeries.expand((e) => e).toList()
+      ..sort((a, b) => b.lastReadAt.compareTo(a.lastReadAt));
+    return all.skip(offset).take(limit).toList();
   }
 
   void _throwIfAuthError(http.Response response) {

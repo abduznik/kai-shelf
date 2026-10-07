@@ -33,6 +33,7 @@ python3 tools/integration/make_comics.py "$WORK"
 echo "==> Starting servers with $CT"
 "$CT" rm -f "$PFX-suwayomi" "$PFX-komga" "$PFX-kavita" >/dev/null 2>&1 || true
 "$CT" run -d --name "$PFX-suwayomi" -p "$PORT_SUWA:4567" \
+  -v "$WORK/suwayomi:/home/suwayomi/.local/share/Tachidesk/local:Z" \
   ghcr.io/suwayomi/tachidesk:stable >/dev/null
 "$CT" run -d --name "$PFX-komga" -p "$PORT_KOMGA:25600" \
   -v "$WORK/komga:/data:Z" docker.io/gotson/komga:latest >/dev/null

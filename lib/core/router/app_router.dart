@@ -6,6 +6,7 @@ import '../../features/categories/presentation/category_members_screen.dart';
 import '../../features/downloads/presentation/downloads_screen.dart';
 import '../../features/extensions/presentation/extensions_screen.dart';
 import '../../features/library/presentation/feed_screen.dart';
+import '../../features/history/presentation/history_screen.dart';
 import '../../features/library/presentation/global_search_screen.dart';
 import '../../features/library/presentation/library_screen.dart';
 import '../../features/library/presentation/manga_detail_screen.dart';
@@ -29,6 +30,10 @@ final GoRouter appRouter = GoRouter(
         GoRoute(
           path: '/library',
           builder: (context, state) => const LibraryScreen(),
+        ),
+        GoRoute(
+          path: '/history',
+          builder: (context, state) => const HistoryScreen(),
         ),
         GoRoute(
           path: '/downloads',

@@ -7,6 +7,7 @@ Produces, per OUT_DIR:
   komga/Series/{Alpha Saga,Beta Quest}/<name> Vol 01..03.cbz   (4 pages each)
   komga/Big/Series 000..229/<name> Vol 01.cbz                  (pagination stress)
   kavita/{Alpha Saga,Beta Quest}/<name> Vol 01..03.cbz
+  suwayomi/{Alpha Saga,Beta Quest}/<name> Vol 01..03.cbz       (Suwayomi local source)
 """
 import os
 import struct
@@ -34,7 +35,7 @@ def cbz(path, pages):
 
 
 out = sys.argv[1]
-for root in ("komga/Series", "kavita"):
+for root in ("komga/Series", "kavita", "suwayomi"):
     for series in ("Alpha Saga", "Beta Quest"):
         for vol in range(1, 4):
             cbz(f"{out}/{root}/{series}/{series} Vol {vol:02d}.cbz", 4)

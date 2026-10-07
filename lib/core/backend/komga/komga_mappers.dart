@@ -72,4 +72,35 @@ class KomgaMappers {
       lastPageRead: (readProgress?['page'] as num?)?.toDouble(),
     );
   }
+
+  /// [json] is a BookDto that has a `readProgress`. The cover is the
+  /// series thumbnail, matching what the library grid shows for the manga.
+  /// Returns null for a book without progress (callers filter those out).
+  static KsHistoryEntry? historyEntryFromJson(
+    Map<String, dynamic> json, {
+    Uri Function(String path)? buildImageUrl,
+    Map<String, String>? coverHeaders,
+  }) {
+    final readProgress = json['readProgress'] as Map<String, dynamic>?;
+    final lastReadAt = DateTime.tryParse((readProgress?['lastModified'] ??
+        readProgress?['readDate'] ??
+        '') as String);
+    if (readProgress == null || lastReadAt == null) return null;
+    final seriesId = json['seriesId'] as String;
+    return KsHistoryEntry(
+      mangaId: seriesId,
+      mangaTitle: json['seriesTitle'] as String? ?? '',
+      coverUrl:
+          buildImageUrl?.call('/api/v1/series/$seriesId/thumbnail').toString(),
+      coverHeaders: coverHeaders,
+      chapterId: json['id'] as String,
+      chapterTitle: json['name'] as String,
+      chapterNumber: double.tryParse(json['number'].toString()),
+      lastPageRead: (readProgress['page'] as num?)?.toDouble(),
+      pageCount:
+          (json['media'] as Map<String, dynamic>?)?['pagesCount'] as int?,
+      read: readProgress['completed'] as bool? ?? false,
+      lastReadAt: lastReadAt.toLocal(),
+    );
+  }
 }

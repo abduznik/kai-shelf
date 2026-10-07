@@ -25,7 +25,8 @@ class SuwayomiBackend
         SourceCapableBackend,
         ExtensionCapableBackend,
         CategoryCapableBackend,
-        ChapterBookmarkCapableBackend {
+        ChapterBookmarkCapableBackend,
+        HistoryCapableBackend {
   SuwayomiBackend(ServerConnectionInfo connectionInfo,
       {http.Client? httpClient})
       : _connectionInfo = connectionInfo,
@@ -317,6 +318,29 @@ class SuwayomiBackend
       ),
     );
     _throwIfAuthError(result);
+  }
+
+  @override
+  Future<List<KsHistoryEntry>> getHistory(
+      {int limit = 50, int offset = 0}) async {
+    final result = await _client.query(
+      QueryOptions(
+        document: gql(SuwayomiQueries.historyQuery),
+        variables: {'first': limit, 'offset': offset},
+        fetchPolicy: FetchPolicy.networkOnly,
+      ),
+    );
+    _throwIfAuthError(result);
+    _throwIfError(result);
+
+    final nodes = result.data?['chapters']?['nodes'] as List? ?? [];
+    return nodes
+        .map((n) => SuwayomiMappers.historyEntryFromJson(
+              n as Map<String, dynamic>,
+              buildImageUrl: buildImageUrl,
+              coverHeaders: _coverHeaders,
+            ))
+        .toList();
   }
 
   @override
