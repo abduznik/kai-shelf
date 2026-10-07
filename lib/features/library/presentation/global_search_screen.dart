@@ -8,33 +8,37 @@ import '../../../core/providers/backend_providers.dart';
 import '../../../core/providers/source_providers.dart';
 import '../../../core/widgets/authenticated_image.dart';
 import '../domain/source_filter.dart';
+import '../domain/source_listing.dart';
 
 /// Searches every installed source at once and groups hits by source.
 /// Sources are queried a few at a time and stream in as they answer, so
-/// one slow or broken source can't block the rest.
+/// one slow or broken source can't block the rest. With [initialQuery] the
+/// search starts on its own once the source list has loaded, which is how
+/// recommendations hand a title over.
 class GlobalSearchScreen extends ConsumerStatefulWidget {
-  const GlobalSearchScreen({super.key});
+  const GlobalSearchScreen({super.key, this.initialQuery});
+
+  final String? initialQuery;
 
   @override
   ConsumerState<GlobalSearchScreen> createState() => _GlobalSearchScreenState();
 }
 
-class _SourceResult {
-  _SourceResult(this.source);
-  final KsSource source;
-  List<KsSourceManga>? items;
-  Object? error;
-  bool get done => items != null || error != null;
-}
-
 class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
-  static const _parallelism = 4;
-
   SourceListFilter _filter = const SourceListFilter(hideNsfw: true);
-  List<_SourceResult> _results = [];
+  List<SourceListing> _results = [];
+  late final TextEditingController _controller =
+      TextEditingController(text: widget.initialQuery);
   String _query = '';
   int _generation = 0;
   bool _searched = false;
+  bool _autoStarted = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   Future<void> _search(String query, List<KsSource> sources) async {
     final backend = ref.read(activeBackendProvider);
@@ -42,30 +46,21 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
     final capable = backend as SourceCapableBackend;
     final gen = ++_generation;
     final targets = _filter.apply(sources.where((s) => s.id != '0').toList());
-    final results = [for (final s in targets) _SourceResult(s)];
+    final results = [for (final s in targets) SourceListing(s)];
     setState(() {
       _query = query.trim();
       _results = results;
       _searched = true;
     });
 
-    var next = 0;
-    Future<void> worker() async {
-      while (next < results.length) {
-        final r = results[next++];
-        try {
-          final page = await capable.browseSource(r.source.id,
-              mode: SourceBrowseMode.search, query: _query);
-          r.items = page.items;
-        } catch (e) {
-          r.error = e;
-        }
-        if (!mounted || gen != _generation) return;
-        setState(() {});
-      }
-    }
-
-    await Future.wait([for (var i = 0; i < _parallelism; i++) worker()]);
+    await loadSourceListings(
+      capable,
+      results,
+      mode: SourceBrowseMode.search,
+      query: _query,
+      cancelled: () => !mounted || gen != _generation,
+      onProgress: () => setState(() {}),
+    );
   }
 
   @override
@@ -73,6 +68,11 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
     final sourcesAsync = ref.watch(sourceListProvider);
     final sources = sourcesAsync.valueOrNull ?? const <KsSource>[];
     final langs = SourceListFilter.languagesOf(sources);
+    if (!_autoStarted && widget.initialQuery != null && sourcesAsync.hasValue) {
+      _autoStarted = true;
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _search(widget.initialQuery!, sources));
+    }
     final shown = _results.where((r) => r.items?.isNotEmpty ?? !r.done);
 
     return Scaffold(
@@ -83,7 +83,8 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: TextField(
-              autofocus: true,
+              controller: _controller,
+              autofocus: widget.initialQuery == null,
               textInputAction: TextInputAction.search,
               decoration: const InputDecoration(
                 hintText: 'Title to search for',
@@ -150,7 +151,7 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
     );
   }
 
-  Widget _section(BuildContext context, _SourceResult r) {
+  Widget _section(BuildContext context, SourceListing r) {
     final items = r.items;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/backend/server_backend.dart';
 import '../../../core/providers/backend_providers.dart';
+import '../../../core/providers/incognito_provider.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -16,6 +17,17 @@ class SettingsScreen extends ConsumerWidget {
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
+          SwitchListTile(
+            secondary: const Icon(Icons.visibility_off_outlined),
+            title: const Text('Incognito mode'),
+            subtitle: const Text(
+                'Reading is not saved: no progress, history, read marks '
+                'or background downloads'),
+            value: ref.watch(incognitoProvider),
+            onChanged: (value) =>
+                ref.read(incognitoProvider.notifier).setEnabled(value),
+          ),
+          const Divider(),
           if (backend is SourceCapableBackend)
             ListTile(
               leading: const Icon(Icons.explore_outlined),
@@ -23,6 +35,14 @@ class SettingsScreen extends ConsumerWidget {
               subtitle:
                   const Text('Browse, filter and search installed sources'),
               onTap: () => context.push('/discover'),
+            ),
+          if (backend is CategoryCapableBackend)
+            ListTile(
+              leading: const Icon(Icons.label_outline),
+              title:
+                  Text((backend as CategoryCapableBackend).categoryTitlePlural),
+              subtitle: const Text('Create, rename, reorder and delete'),
+              onTap: () => context.push('/categories'),
             ),
           if (backend is ExtensionCapableBackend)
             ListTile(

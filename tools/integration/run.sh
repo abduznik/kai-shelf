@@ -22,7 +22,9 @@ KAVITA_PASSWORD="Kai-test-pw1!"
 cleanup() {
   if [ -z "${KEEP:-}" ]; then
     "$CT" rm -f "$PFX-suwayomi" "$PFX-komga" "$PFX-kavita" >/dev/null 2>&1 || true
-    rm -rf "$WORK"
+    # Files written by the containers may not be deletable by this user; a
+    # leftover temp dir must not turn a passing run into a failure.
+    rm -rf "$WORK" 2>/dev/null || true
   fi
 }
 trap cleanup EXIT
@@ -33,6 +35,7 @@ python3 tools/integration/make_comics.py "$WORK"
 echo "==> Starting servers with $CT"
 "$CT" rm -f "$PFX-suwayomi" "$PFX-komga" "$PFX-kavita" >/dev/null 2>&1 || true
 "$CT" run -d --name "$PFX-suwayomi" -p "$PORT_SUWA:4567" \
+  -v "$WORK/suwayomi:/home/suwayomi/.local/share/Tachidesk/local:Z" \
   ghcr.io/suwayomi/tachidesk:stable >/dev/null
 "$CT" run -d --name "$PFX-komga" -p "$PORT_KOMGA:25600" \
   -v "$WORK/komga:/data:Z" docker.io/gotson/komga:latest >/dev/null
@@ -51,6 +54,11 @@ wait_for() { # name url
 wait_for suwayomi "http://localhost:$PORT_SUWA/api/graphql"
 wait_for komga "http://localhost:$PORT_KOMGA/api/v1/claim"
 wait_for kavita "http://localhost:$PORT_KAVITA/api/health"
+
+echo "==> Seeding Suwayomi's Local source"
+# Gives the category tests a title to file without needing an extension.
+"$CT" cp "$WORK/komga/Series/Alpha Saga" \
+  "$PFX-suwayomi:/home/suwayomi/.local/share/Tachidesk/local/" >/dev/null
 
 echo "==> Seeding Komga"
 curl -sf -X POST "http://localhost:$PORT_KOMGA/api/v1/claim" \

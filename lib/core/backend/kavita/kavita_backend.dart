@@ -11,7 +11,8 @@ import 'kavita_mappers.dart';
 /// pair via /api/Plugin/authenticate, then sent as a Bearer token on every
 /// subsequent request. Series > Volumes > Chapters hierarchy is flattened:
 /// each KsChapter maps to one Kavita ChapterDto.
-class KavitaBackend implements ServerBackend {
+class KavitaBackend
+    implements ServerBackend, CategoryCapableBackend, HistoryCapableBackend {
   KavitaBackend(ServerConnectionInfo connectionInfo, {http.Client? httpClient})
       : _connectionInfo = connectionInfo,
         _client = httpClient ?? http.Client();
@@ -291,6 +292,180 @@ class KavitaBackend implements ServerBackend {
     _throwIfAuthError(response);
   }
 
+  @override
+  String get categoryNoun => 'collection';
+
+  @override
+  bool get canReorderCategories => false;
+
+  /// Verified against Kavita: update-for-series with an empty seriesIds
+  /// list creates an empty collection. Removing the last series from a
+  /// collection later makes the server delete it, though.
+  @override
+  bool get canCreateEmptyCategory => true;
+
+  Map<String, String> get _jsonHeaders =>
+      {..._authHeaders, 'Content-Type': 'application/json'};
+
+  void _throwIfFailed(http.Response response) {
+    _throwIfAuthError(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) return;
+    var message = 'Kavita answered ${response.statusCode}';
+    if (response.body.isNotEmpty && response.body.length < 300) {
+      message = response.body;
+    }
+    throw BackendException(message);
+  }
+
+  /// Raw CollectionDto list. Only the user's own collections are asked for,
+  /// since those are the ones the API lets them edit.
+  Future<List<Map<String, dynamic>>> _rawCollections() async {
+    final response = await _client.get(
+        _uri('/api/Collection', {'ownedOnly': 'true'}),
+        headers: _authHeaders);
+    _throwIfFailed(response);
+    return (jsonDecode(response.body) as List).cast<Map<String, dynamic>>();
+  }
+
+  @override
+  Future<List<KsCategory>> getCategories() async =>
+      (await _rawCollections()).map(KavitaMappers.categoryFromJson).toList();
+
+  @override
+  Future<KsCategory> createCategory(String name, {String? firstMangaId}) async {
+    final before = (await _rawCollections()).map((c) => c['id']).toSet();
+    final response = await _client.post(
+      _uri('/api/Collection/update-for-series'),
+      headers: _jsonHeaders,
+      body: jsonEncode({
+        'collectionTagId': 0,
+        'collectionTagTitle': name,
+        'seriesIds': [if (firstMangaId != null) int.parse(firstMangaId)],
+      }),
+    );
+    _throwIfFailed(response);
+    // The call answers with no body, so the new collection is whichever one
+    // appeared.
+    final created = (await _rawCollections())
+        .firstWhere((c) => !before.contains(c['id']), orElse: () => {});
+    if (created.isEmpty) {
+      throw const BackendException('Kavita did not create the collection.');
+    }
+    return KavitaMappers.categoryFromJson(created);
+  }
+
+  /// The tag payload update endpoints expect, built from the server's copy so
+  /// that renaming does not wipe the summary or promoted flag.
+  Future<Map<String, dynamic>> _tag(String id, {String? title}) async {
+    final c = (await _rawCollections())
+        .firstWhere((c) => c['id'].toString() == id, orElse: () => {});
+    if (c.isEmpty) throw const BackendException('Collection not found.');
+    return {
+      'id': c['id'],
+      'title': title ?? c['title'],
+      'summary': c['summary'] ?? '',
+      'promoted': c['promoted'] ?? false,
+    };
+  }
+
+  @override
+  Future<void> renameCategory(String categoryId, String name) async {
+    final response = await _client.post(
+      _uri('/api/Collection/update'),
+      headers: _jsonHeaders,
+      body: jsonEncode(await _tag(categoryId, title: name)),
+    );
+    _throwIfFailed(response);
+  }
+
+  @override
+  Future<void> deleteCategory(String categoryId) async {
+    final response = await _client.delete(
+        _uri('/api/Collection', {'tagId': categoryId}),
+        headers: _authHeaders);
+    _throwIfFailed(response);
+  }
+
+  @override
+  Future<void> moveCategory(String categoryId, int newIndex) =>
+      throw UnsupportedError('Kavita sorts collections itself');
+
+  @override
+  Future<Set<String>> getMangaCategoryIds(String mangaId) async {
+    final response = await _client.get(
+        _uri('/api/Collection/all-series', {'seriesId': mangaId}),
+        headers: _authHeaders);
+    _throwIfFailed(response);
+    return (jsonDecode(response.body) as List)
+        .map((j) => (j as Map)['id'].toString())
+        .toSet();
+  }
+
+  @override
+  Future<void> setMangaCategories(
+      String mangaId, Set<String> categoryIds) async {
+    final current = await getMangaCategoryIds(mangaId);
+    for (final id in categoryIds.difference(current)) {
+      final tag = await _tag(id);
+      final response = await _client.post(
+        _uri('/api/Collection/update-for-series'),
+        headers: _jsonHeaders,
+        body: jsonEncode({
+          'collectionTagId': tag['id'],
+          'collectionTagTitle': tag['title'],
+          'seriesIds': [int.parse(mangaId)],
+        }),
+      );
+      _throwIfFailed(response);
+    }
+    for (final id in current.difference(categoryIds)) {
+      final response = await _client.post(
+        _uri('/api/Collection/update-series'),
+        headers: _jsonHeaders,
+        body: jsonEncode({
+          'tag': await _tag(id),
+          'seriesIdsToRemove': [int.parse(mangaId)],
+        }),
+      );
+      _throwIfFailed(response);
+    }
+  }
+
+  @override
+  Future<List<KsManga>> getCategoryManga(String categoryId) async {
+    final all = <KsManga>[];
+    final seen = <String>{};
+    for (var page = 1;; page++) {
+      final response = await _client.post(
+        _uri('/api/Series/v2', {
+          'PageNumber': page.toString(),
+          'PageSize': _pageSize.toString(),
+        }),
+        headers: _jsonHeaders,
+        // field 7 is CollectionTags, comparison 0 is Equal.
+        body: jsonEncode({
+          'statements': [
+            {'comparison': 0, 'field': 7, 'value': categoryId}
+          ],
+          'combination': 1,
+          'limitTo': 0,
+        }),
+      );
+      _throwIfFailed(response);
+      final batch = (jsonDecode(response.body) as List)
+          .map((json) => KavitaMappers.mangaFromJson(
+                json as Map<String, dynamic>,
+                buildImageUrl: buildImageUrl,
+                coverHeaders: _authHeaders.isEmpty ? null : _authHeaders,
+              ))
+          .toList();
+      final fresh = batch.where((m) => seen.add(m.id)).toList();
+      all.addAll(fresh);
+      if (batch.length < _pageSize || fresh.isEmpty) break;
+    }
+    return all;
+  }
+
   Uri _withApiKey(Uri uri) {
     final key = _connectionInfo.apiKey;
     if (key == null || key.isEmpty) return uri;
@@ -304,6 +479,69 @@ class KavitaBackend implements ServerBackend {
     final uri = Uri.parse(pathOrId);
     return _connectionInfo.baseUrl
         .replace(path: uri.path, queryParameters: uri.queryParameters);
+  }
+
+  /// At most this many recently read series are expanded into chapters.
+  static const _historySeriesCap = 25;
+
+  /// Kavita has no per-chapter "recently read" feed (the stats history
+  /// endpoint stays empty for API-driven progress, confirmed against a live
+  /// server), but every ChapterDto carries `lastReadingProgressUtc`. So:
+  /// take the series whose `latestReadDate` is set, newest first, expand the
+  /// top few into their chapters, and sort the chapters by that timestamp.
+  /// The series cap bounds the request count; chapters from series beyond it
+  /// are older than everything shown.
+  @override
+  Future<List<KsHistoryEntry>> getHistory(
+      {int limit = 50, int offset = 0}) async {
+    final read = <Map<String, dynamic>>[];
+    for (var page = 1;; page++) {
+      final response = await _client.post(
+        _uri('/api/Series/v2', {
+          'PageNumber': '$page',
+          'PageSize': '$_pageSize',
+        }),
+        headers: {..._authHeaders, 'Content-Type': 'application/json'},
+        body: jsonEncode({}),
+      );
+      _throwIfAuthError(response);
+      final batch =
+          (jsonDecode(response.body) as List).cast<Map<String, dynamic>>();
+      read.addAll(batch
+          .where((s) => KavitaMappers.parseUtc(s['latestReadDate']) != null));
+      if (batch.length < _pageSize) break;
+    }
+    read.sort((a, b) => KavitaMappers.parseUtc(b['latestReadDate'])!
+        .compareTo(KavitaMappers.parseUtc(a['latestReadDate'])!));
+
+    final perSeries = await Future.wait(read.take(_historySeriesCap).map(
+      (series) async {
+        final response = await _client.get(
+          _uri('/api/Series/volumes', {'seriesId': series['id'].toString()}),
+          headers: _authHeaders,
+        );
+        _throwIfAuthError(response);
+        final entries = <KsHistoryEntry>[];
+        for (final volume in jsonDecode(response.body) as List) {
+          final volumeJson = volume as Map<String, dynamic>;
+          for (final chapter in volumeJson['chapters'] as List? ?? []) {
+            final entry = KavitaMappers.historyEntryFromJson(
+              chapter as Map<String, dynamic>,
+              series: series,
+              volume: volumeJson,
+              buildImageUrl: buildImageUrl,
+              coverHeaders: _authHeaders.isEmpty ? null : _authHeaders,
+            );
+            if (entry != null) entries.add(entry);
+          }
+        }
+        return entries;
+      },
+    ));
+
+    final all = perSeries.expand((e) => e).toList()
+      ..sort((a, b) => b.lastReadAt.compareTo(a.lastReadAt));
+    return all.skip(offset).take(limit).toList();
   }
 
   void _throwIfAuthError(http.Response response) {

@@ -6,13 +6,20 @@ import '../../../core/backend/models.dart';
 import '../../../core/download/download_queue.dart';
 import '../../../core/download/offline_page_resolver.dart';
 import '../../../core/providers/backend_providers.dart';
+import '../../../core/providers/incognito_provider.dart';
 import '../../../core/providers/library_providers.dart';
 import '../../../core/providers/reader_prefs_provider.dart';
 import '../../../core/providers/storage_providers.dart';
+import '../../../core/storage/reading_progress_repository.dart';
 import '../domain/page_prefetcher.dart';
 import '../domain/reader_progress_tracker.dart';
+import '../domain/reading_flow.dart';
+import 'package:go_router/go_router.dart';
+import 'reader_jump_controller.dart';
+import '../../../core/widgets/incognito_badge.dart';
 import 'paged_reader_view.dart';
 import 'webtoon_reader_view.dart';
+import 'widgets/next_chapter_prompt.dart';
 import 'widgets/reader_controls_overlay.dart';
 
 /// Chapters below this page count are cheap enough to eagerly download in
@@ -34,12 +41,18 @@ class ReaderScreen extends ConsumerStatefulWidget {
 class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   bool _controlsVisible = false;
   int _currentPage = 0;
+  int? _startPage;
+  bool _resolvingStart = false;
+  final ReaderJumpController _jumpController = ReaderJumpController();
   ReaderProgressTracker? _tracker;
   final PagePrefetcher _prefetcher = PagePrefetcher();
   bool _backgroundDownloadTriggered = false;
 
   @override
   void dispose() {
+    // Flush so leaving quickly (or hopping to the next chapter) still
+    // records where the user got to.
+    _tracker?.flush();
     _tracker?.dispose();
     super.dispose();
   }
@@ -51,6 +64,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   /// come from disk. Web has no durable filesystem, so this is native-only,
   /// matching the existing download-feature guard.
   Future<void> _maybeStartBackgroundDownload() async {
+    // Incognito: no writes to disk on the user's behalf. The trigger flag is
+    // left unset so leaving incognito mid-chapter can still start it.
+    if (ref.read(incognitoProvider)) return;
     if (_backgroundDownloadTriggered || kIsWeb) return;
     _backgroundDownloadTriggered = true;
 
@@ -100,15 +116,52 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
     }
   }
 
+  /// Resolves where to open the chapter, once. Server progress comes from
+  /// the chapter list (works on web, where there is no local database); the
+  /// local row is only a fallback for unsynced progress.
+  Future<int> _resolveStartPage(int pageCount) async {
+    // Each source is looked up independently: offline, the chapter list
+    // fails but a downloaded chapter's local progress row is still there.
+    KsChapter? chapter;
+    try {
+      final chapters = await ref.read(chaptersProvider(widget.mangaId).future);
+      chapter = chapters.where((c) => c.id == widget.chapterId).firstOrNull;
+    } catch (_) {}
+
+    ReadingProgress? local;
+    try {
+      final connection = ref.read(activeConnectionProvider);
+      if (connection != null) {
+        local = await ref
+            .read(readingProgressRepositoryProvider)
+            ?.get(serverId: connection.serverId, chapterId: widget.chapterId);
+      }
+    } catch (_) {}
+
+    return resumePageFor(
+      pageCount: pageCount,
+      serverRead: chapter?.read ?? false,
+      serverLastPage: chapter?.lastPageRead,
+      localRead: local?.read ?? false,
+      localLastPage: local?.lastPageRead,
+    );
+  }
+
+  void _goToChapter(KsChapter chapter) {
+    context.pushReplacement('/reader/${widget.mangaId}/${chapter.id}');
+  }
+
   void _ensureTracker(int totalPages) {
     if (_tracker != null) return;
     final connection = ref.read(activeConnectionProvider);
     if (connection == null) return;
     final repository = ref.read(readingProgressRepositoryProvider);
     final backend = ref.read(activeBackendProvider);
+    final container = ProviderScope.containerOf(context, listen: false);
 
     _tracker = ReaderProgressTracker(
       totalPages: totalPages,
+      isIncognito: () => ref.read(incognitoProvider),
       onSaveLocal: ({required read, required lastPageRead}) async {
         await repository?.save(
           serverId: connection.serverId,
@@ -120,12 +173,20 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
       },
       onSyncServer: backend == null
           ? null
-          : ({required read, required lastPageRead}) =>
-              backend.updateReadProgress(
+          : ({required read, required lastPageRead}) async {
+              await backend.updateReadProgress(
                 widget.chapterId,
                 read: read,
                 lastPageRead: lastPageRead,
-              ),
+              );
+              // Keep the detail screen's chapter list (and its continue
+              // button) in step with what was just read. Goes through the
+              // container because a flush on dispose lands after `ref` is
+              // no longer usable.
+              try {
+                container.invalidate(chaptersProvider(widget.mangaId));
+              } catch (_) {}
+            },
     );
   }
 
@@ -150,11 +211,29 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                   style: TextStyle(color: Colors.white)),
             );
           }
+          if (_startPage == null) {
+            if (!_resolvingStart) {
+              _resolvingStart = true;
+              _resolveStartPage(pages.length).then((page) {
+                if (!mounted) return;
+                setState(() {
+                  _startPage = page;
+                  _currentPage = page;
+                });
+              });
+            }
+            return const Center(child: CircularProgressIndicator());
+          }
           _ensureTracker(pages.length);
           WidgetsBinding.instance.addPostFrameCallback((_) {
             _prefetcher.prefetchAround(context, pages, _currentPage);
             _maybeStartBackgroundDownload();
           });
+
+          final chapters =
+              ref.watch(chaptersProvider(widget.mangaId)).value ?? const [];
+          final adjacent = adjacentChapters(chapters, widget.chapterId);
+          final atEnd = _currentPage >= pages.length - 1;
 
           return Stack(
             children: [
@@ -164,11 +243,25 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 child: mode == ReaderMode.paged
                     ? PagedReaderView(
                         pages: pages,
+                        initialPage: _currentPage,
+                        jumpController: _jumpController,
                         onPageChanged: (index) => _onPageChanged(index, pages))
                     : WebtoonReaderView(
                         pages: pages,
+                        initialPage: _currentPage,
+                        jumpController: _jumpController,
                         onPageChanged: (index) => _onPageChanged(index, pages)),
               ),
+              if (atEnd && adjacent.next != null && !_controlsVisible)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: MediaQuery.of(context).padding.bottom + 24,
+                  child: NextChapterPrompt(
+                    onPressed: () => _goToChapter(adjacent.next!),
+                  ),
+                ),
+              const IncognitoBadge.positioned(),
               ReaderControlsOverlay(
                 visible: _controlsVisible,
                 currentPage: _currentPage,
@@ -177,6 +270,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 onModeChanged: (newMode) =>
                     ref.read(readerModeProvider.notifier).setMode(newMode),
                 onClose: () => Navigator.of(context).maybePop(),
+                onPageSelected: _jumpController.jumpTo,
+                onPreviousChapter: adjacent.previous == null
+                    ? null
+                    : () => _goToChapter(adjacent.previous!),
+                onNextChapter: adjacent.next == null
+                    ? null
+                    : () => _goToChapter(adjacent.next!),
               ),
             ],
           );

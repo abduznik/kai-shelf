@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
 
 import '../../../core/backend/models.dart';
+import 'reader_jump_controller.dart';
 import 'widgets/page_image.dart';
 
 class PagedReaderView extends StatefulWidget {
@@ -11,12 +12,14 @@ class PagedReaderView extends StatefulWidget {
     required this.onPageChanged,
     this.rightToLeft = false,
     this.initialPage = 0,
+    this.jumpController,
   });
 
   final List<KsPage> pages;
   final ValueChanged<int> onPageChanged;
   final bool rightToLeft;
   final int initialPage;
+  final ReaderJumpController? jumpController;
 
   @override
   State<PagedReaderView> createState() => _PagedReaderViewState();
@@ -29,10 +32,17 @@ class _PagedReaderViewState extends State<PagedReaderView> {
   void initState() {
     super.initState();
     _controller = PageController(initialPage: widget.initialPage);
+    widget.jumpController?.attach(_jumpTo);
+  }
+
+  void _jumpTo(int page) {
+    if (!_controller.hasClients || widget.pages.isEmpty) return;
+    _controller.jumpToPage(page.clamp(0, widget.pages.length - 1));
   }
 
   @override
   void dispose() {
+    widget.jumpController?.detach(_jumpTo);
     _controller.dispose();
     super.dispose();
   }

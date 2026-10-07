@@ -18,6 +18,26 @@ class KsLibrary {
   final int mangaCount;
 }
 
+/// A user-named grouping of manga: a Suwayomi category, a Komga collection or
+/// a Kavita collection. Distinct from [KsLibrary], which for Komga/Kavita is
+/// a disk-backed library the user cannot edit.
+class KsCategory {
+  const KsCategory({
+    required this.id,
+    required this.name,
+    this.mangaCount = 0,
+    this.isDefault = false,
+  });
+
+  final String id;
+  final String name;
+  final int mangaCount;
+
+  /// Suwayomi's built-in "Default" category, which holds every library manga
+  /// that has no category of its own. It cannot be renamed, moved or deleted.
+  final bool isDefault;
+}
+
 class KsManga {
   const KsManga({
     required this.id,
@@ -64,6 +84,7 @@ class KsChapter {
     this.read = false,
     this.lastPageRead,
     this.pageCount,
+    this.bookmarked = false,
   });
 
   final String id;
@@ -74,6 +95,10 @@ class KsChapter {
   final bool read;
   final double? lastPageRead;
   final int? pageCount;
+
+  /// Only Suwayomi tracks bookmarks per chapter; Komga and Kavita bookmark
+  /// individual pages instead, so this stays false for them.
+  final bool bookmarked;
 }
 
 class KsPage {
@@ -377,4 +402,40 @@ class KsSourcePage {
 
   final List<KsSourceManga> items;
   final bool hasNextPage;
+}
+
+/// One recently read chapter, as reported by the server's own read state.
+/// Carries the manga's title and cover alongside the chapter so a history
+/// list can render without a lookup per row.
+class KsHistoryEntry {
+  const KsHistoryEntry({
+    required this.mangaId,
+    required this.mangaTitle,
+    required this.chapterId,
+    required this.chapterTitle,
+    required this.lastReadAt,
+    this.coverUrl,
+    this.coverHeaders,
+    this.chapterNumber,
+    this.lastPageRead,
+    this.pageCount,
+    this.read = false,
+  });
+
+  final String mangaId;
+  final String mangaTitle;
+  final String? coverUrl;
+
+  /// Same role as [KsManga.coverHeaders].
+  final Map<String, String>? coverHeaders;
+  final String chapterId;
+  final String chapterTitle;
+  final double? chapterNumber;
+
+  /// Zero-based index of the last page opened, matching
+  /// [KsChapter.lastPageRead].
+  final double? lastPageRead;
+  final int? pageCount;
+  final bool read;
+  final DateTime lastReadAt;
 }

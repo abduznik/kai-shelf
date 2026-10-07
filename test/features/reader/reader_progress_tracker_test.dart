@@ -87,5 +87,24 @@ void main() {
 
       expect(localSaved, isTrue);
     });
+
+    test('flush persists a pending page immediately, once', () async {
+      final saved = <(bool, double)>[];
+      final tracker = ReaderProgressTracker(
+        totalPages: 3,
+        debounceDuration: const Duration(milliseconds: 500),
+        onSaveLocal: ({required read, required lastPageRead}) async {
+          saved.add((read, lastPageRead));
+        },
+      );
+
+      tracker.onPageChanged(2);
+      tracker.flush();
+      tracker.flush();
+      tracker.dispose();
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+
+      expect(saved, [(true, 2.0)]);
+    });
   });
 }

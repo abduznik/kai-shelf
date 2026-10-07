@@ -1,11 +1,16 @@
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/add_server_screen.dart';
+import '../../features/categories/presentation/category_manage_screen.dart';
+import '../../features/categories/presentation/category_members_screen.dart';
 import '../../features/downloads/presentation/downloads_screen.dart';
 import '../../features/extensions/presentation/extensions_screen.dart';
+import '../../features/library/presentation/feed_screen.dart';
+import '../../features/history/presentation/history_screen.dart';
 import '../../features/library/presentation/global_search_screen.dart';
 import '../../features/library/presentation/library_screen.dart';
 import '../../features/library/presentation/manga_detail_screen.dart';
+import '../../features/library/presentation/recommended_screen.dart';
 import '../../features/library/presentation/source_list_screen.dart';
 import '../../features/library/presentation/source_search_screen.dart';
 import '../../features/reader/presentation/reader_screen.dart';
@@ -27,6 +32,10 @@ final GoRouter appRouter = GoRouter(
           builder: (context, state) => const LibraryScreen(),
         ),
         GoRoute(
+          path: '/history',
+          builder: (context, state) => const HistoryScreen(),
+        ),
+        GoRoute(
           path: '/downloads',
           builder: (context, state) => const DownloadsScreen(),
         ),
@@ -42,7 +51,27 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: '/discover/all',
-      builder: (context, state) => const GlobalSearchScreen(),
+      builder: (context, state) =>
+          GlobalSearchScreen(initialQuery: state.uri.queryParameters['q']),
+    ),
+    GoRoute(
+      path: '/discover/feed',
+      builder: (context, state) => const FeedScreen(),
+    ),
+    GoRoute(
+      path: '/recommended',
+      builder: (context, state) => const RecommendedScreen(),
+    ),
+    GoRoute(
+      path: '/categories',
+      builder: (context, state) => const CategoryManageScreen(),
+    ),
+    GoRoute(
+      path: '/categories/:id',
+      builder: (context, state) => CategoryMembersScreen(
+        categoryId: state.pathParameters['id']!,
+        name: state.uri.queryParameters['name'] ?? 'Category',
+      ),
     ),
     GoRoute(
       path: '/extensions',

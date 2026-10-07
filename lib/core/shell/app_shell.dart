@@ -6,7 +6,7 @@ class AppShell extends StatelessWidget {
 
   final Widget child;
 
-  static const _tabs = ['/', '/library', '/downloads', '/settings'];
+  static const _tabs = ['/', '/library', '/history', '/downloads', '/settings'];
 
   int _indexForLocation(String location) {
     final index = _tabs.indexWhere(
@@ -33,6 +33,10 @@ class AppShell extends StatelessWidget {
               icon: Icon(Icons.menu_book_outlined),
               selectedIcon: Icon(Icons.menu_book),
               label: 'Library'),
+          NavigationDestination(
+              icon: Icon(Icons.history),
+              selectedIcon: Icon(Icons.history),
+              label: 'History'),
           NavigationDestination(
               icon: Icon(Icons.download_outlined),
               selectedIcon: Icon(Icons.download),

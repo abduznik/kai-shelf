@@ -9,6 +9,15 @@ class KavitaMappers {
     return KsLibrary(id: json['id'].toString(), name: json['name'] as String);
   }
 
+  /// [json] is a Kavita CollectionDto (`itemCount` is its series count).
+  static KsCategory categoryFromJson(Map<String, dynamic> json) {
+    return KsCategory(
+      id: json['id'].toString(),
+      name: json['title'] as String,
+      mangaCount: (json['itemCount'] as num?)?.toInt() ?? 0,
+    );
+  }
+
   /// [json] is a Kavita SeriesDto; summary/genres live in a separate
   /// SeriesMetadataDto fetched via /api/Series/metadata, merged in here as
   /// [metadata] when available.
@@ -32,6 +41,49 @@ class KavitaMappers {
               .toList() ??
           const [],
       backendExtra: json,
+    );
+  }
+
+  /// Kavita stamps UTC times without a zone suffix ("...T15:17:09.80"), which
+  /// Dart would otherwise read as local time. Returns null for the
+  /// 0001-01-01 placeholder meaning "never".
+  static DateTime? parseUtc(Object? raw) {
+    if (raw is! String || raw.isEmpty) return null;
+    final hasZone =
+        raw.endsWith('Z') || RegExp(r'[+-]\d\d:\d\d$').hasMatch(raw);
+    final parsed = DateTime.tryParse(hasZone ? raw : '${raw}Z');
+    if (parsed == null || parsed.year <= 1) return null;
+    return parsed.toLocal();
+  }
+
+  /// A chapter that has reading progress, paired with its series. Returns
+  /// null for a chapter never opened. [series] is the owning SeriesDto and
+  /// [volume] the VolumeDto [json] came from.
+  static KsHistoryEntry? historyEntryFromJson(
+    Map<String, dynamic> json, {
+    required Map<String, dynamic> series,
+    Map<String, dynamic>? volume,
+    Uri Function(String path)? buildImageUrl,
+    Map<String, String>? coverHeaders,
+  }) {
+    final lastReadAt = parseUtc(json['lastReadingProgressUtc']);
+    if (lastReadAt == null) return null;
+    final seriesId = series['id'].toString();
+    final chapter = chapterFromJson(json, mangaId: seriesId, volume: volume);
+    return KsHistoryEntry(
+      mangaId: seriesId,
+      mangaTitle: (series['name'] as String?) ?? '',
+      coverUrl: buildImageUrl
+          ?.call('/api/Image/series-cover?seriesId=$seriesId')
+          .toString(),
+      coverHeaders: coverHeaders,
+      chapterId: chapter.id,
+      chapterTitle: chapter.title,
+      chapterNumber: chapter.chapterNumber,
+      lastPageRead: chapter.lastPageRead,
+      pageCount: chapter.pageCount,
+      read: chapter.read,
+      lastReadAt: lastReadAt,
     );
   }
 

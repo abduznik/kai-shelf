@@ -10,7 +10,8 @@ import 'komga_mappers.dart';
 /// Komga adapter — REST API, HTTP Basic Auth (email+password) or an
 /// X-API-Key header, both accepted simultaneously per Komga's OpenAPI spec
 /// (no session cookie exchange needed for API clients).
-class KomgaBackend implements ServerBackend {
+class KomgaBackend
+    implements ServerBackend, CategoryCapableBackend, HistoryCapableBackend {
   KomgaBackend(ServerConnectionInfo connectionInfo, {http.Client? httpClient})
       : _connectionInfo = connectionInfo,
         _client = httpClient ?? http.Client();
@@ -192,6 +193,192 @@ class KomgaBackend implements ServerBackend {
       }),
     );
     _throwIfAuthError(response);
+  }
+
+  /// Books that have any read progress (in progress or completed), ordered
+  /// by when that progress was last written. `read_status` is repeated
+  /// rather than comma-joined, which is what the endpoint's own docs use.
+  @override
+  Future<List<KsHistoryEntry>> getHistory(
+      {int limit = 50, int offset = 0}) async {
+    // Komga pages by page index, so [offset] must be a multiple of [limit].
+    final uri = _connectionInfo.baseUrl.replace(
+      path: '/api/v1/books',
+      queryParameters: {
+        'read_status': ['READ', 'IN_PROGRESS'],
+        'sort': 'readProgress.lastModified,desc',
+        'size': '$limit',
+        'page': '${offset ~/ limit}',
+      },
+    );
+    final response = await _client.get(uri, headers: _authHeaders);
+    _throwIfAuthError(response);
+    final content =
+        (jsonDecode(response.body) as Map<String, dynamic>)['content'] as List;
+    return content
+        .map((json) => KomgaMappers.historyEntryFromJson(
+              json as Map<String, dynamic>,
+              buildImageUrl: buildImageUrl,
+              coverHeaders: _authHeaders.isEmpty ? null : _authHeaders,
+            ))
+        .whereType<KsHistoryEntry>()
+        .toList();
+  }
+
+  @override
+  String get categoryNoun => 'collection';
+
+  @override
+  bool get canReorderCategories => false;
+
+  /// Verified against Komga: POST /api/v1/collections answers 400 "seriesIds
+  /// must not be empty", and so does PATCHing the list down to nothing.
+  @override
+  bool get canCreateEmptyCategory => false;
+
+  Map<String, String> get _jsonHeaders =>
+      {..._authHeaders, 'Content-Type': 'application/json'};
+
+  /// Raises for any non-2xx answer, quoting Komga's validation message when
+  /// it sent one.
+  void _throwIfFailed(http.Response response) {
+    _throwIfAuthError(response);
+    if (response.statusCode >= 200 && response.statusCode < 300) return;
+    var message = 'Komga answered ${response.statusCode}';
+    try {
+      final body = jsonDecode(response.body);
+      if (body is Map && body['violations'] is List) {
+        message = (body['violations'] as List)
+            .map((v) => '${v['fieldName']} ${v['message']}')
+            .join(', ');
+      } else if (body is Map && body['message'] != null) {
+        message = body['message'].toString();
+      }
+    } catch (_) {}
+    throw BackendException(message);
+  }
+
+  @override
+  Future<List<KsCategory>> getCategories() async {
+    final response = await _client.get(
+        _uri('/api/v1/collections', {'unpaged': 'true'}),
+        headers: _authHeaders);
+    _throwIfFailed(response);
+    final content =
+        (jsonDecode(response.body) as Map<String, dynamic>)['content'] as List;
+    return content
+        .map((j) => KomgaMappers.categoryFromJson(j as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> _collection(String id) async {
+    final response = await _client.get(_uri('/api/v1/collections/$id'),
+        headers: _authHeaders);
+    _throwIfFailed(response);
+    return jsonDecode(response.body) as Map<String, dynamic>;
+  }
+
+  @override
+  Future<KsCategory> createCategory(String name, {String? firstMangaId}) async {
+    if (firstMangaId == null) {
+      throw const BackendException(
+          'Komga collections cannot be empty. Create one from a manga.');
+    }
+    final response = await _client.post(
+      _uri('/api/v1/collections'),
+      headers: _jsonHeaders,
+      body: jsonEncode({
+        'name': name,
+        'ordered': false,
+        'seriesIds': [firstMangaId],
+      }),
+    );
+    _throwIfFailed(response);
+    return KomgaMappers.categoryFromJson(
+        jsonDecode(response.body) as Map<String, dynamic>);
+  }
+
+  @override
+  Future<void> renameCategory(String categoryId, String name) async {
+    final response = await _client.patch(
+      _uri('/api/v1/collections/$categoryId'),
+      headers: _jsonHeaders,
+      body: jsonEncode({'name': name}),
+    );
+    _throwIfFailed(response);
+  }
+
+  @override
+  Future<void> deleteCategory(String categoryId) async {
+    final response = await _client
+        .delete(_uri('/api/v1/collections/$categoryId'), headers: _authHeaders);
+    _throwIfFailed(response);
+  }
+
+  @override
+  Future<void> moveCategory(String categoryId, int newIndex) =>
+      throw UnsupportedError('Komga sorts collections itself');
+
+  @override
+  Future<Set<String>> getMangaCategoryIds(String mangaId) async {
+    final response = await _client.get(
+        _uri('/api/v1/series/$mangaId/collections'),
+        headers: _authHeaders);
+    _throwIfFailed(response);
+    return (jsonDecode(response.body) as List)
+        .map((j) => (j as Map)['id'] as String)
+        .toSet();
+  }
+
+  /// Komga has no add/remove-one-series call: PATCH replaces the whole
+  /// series list, so each change reads the list first. A collection left
+  /// without series is deleted because Komga rejects an empty one.
+  @override
+  Future<void> setMangaCategories(
+      String mangaId, Set<String> categoryIds) async {
+    final current = await getMangaCategoryIds(mangaId);
+    for (final id in categoryIds.difference(current)) {
+      final ids = ((await _collection(id))['seriesIds'] as List).cast<String>();
+      await _replaceSeries(id, [...ids, mangaId]);
+    }
+    for (final id in current.difference(categoryIds)) {
+      final ids = ((await _collection(id))['seriesIds'] as List)
+          .cast<String>()
+          .where((s) => s != mangaId)
+          .toList();
+      if (ids.isEmpty) {
+        await deleteCategory(id);
+      } else {
+        await _replaceSeries(id, ids);
+      }
+    }
+  }
+
+  Future<void> _replaceSeries(String collectionId, List<String> ids) async {
+    final response = await _client.patch(
+      _uri('/api/v1/collections/$collectionId'),
+      headers: _jsonHeaders,
+      body: jsonEncode({'seriesIds': ids}),
+    );
+    _throwIfFailed(response);
+  }
+
+  @override
+  Future<List<KsManga>> getCategoryManga(String categoryId) async {
+    final response = await _client.get(
+      _uri('/api/v1/series', {'collection_id': categoryId, 'unpaged': 'true'}),
+      headers: _authHeaders,
+    );
+    _throwIfFailed(response);
+    final content =
+        (jsonDecode(response.body) as Map<String, dynamic>)['content'] as List;
+    return content
+        .map((json) => KomgaMappers.mangaFromJson(
+              json as Map<String, dynamic>,
+              buildImageUrl: buildImageUrl,
+              coverHeaders: _authHeaders.isEmpty ? null : _authHeaders,
+            ))
+        .toList();
   }
 
   @override

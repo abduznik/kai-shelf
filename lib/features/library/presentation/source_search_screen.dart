@@ -5,8 +5,11 @@ import 'package:go_router/go_router.dart';
 import '../../../core/backend/models.dart';
 import '../../../core/backend/server_backend.dart';
 import '../../../core/providers/backend_providers.dart';
+import '../../../core/providers/library_providers.dart';
 import '../../../core/providers/source_providers.dart';
 import '../../../core/widgets/authenticated_image.dart';
+import '../../categories/presentation/category_actions.dart';
+import '../../categories/presentation/category_picker_sheet.dart';
 import 'widgets/source_filter_sheet.dart';
 
 /// Browses one source: popular and latest listings, or a search narrowed
@@ -354,22 +357,49 @@ class _SourceSearchScreenState extends ConsumerState<SourceSearchScreen> {
   Future<void> _toggleLibrary(KsSourceManga manga) async {
     final backend = _backend;
     if (backend == null) return;
+    // Servers with named categories let the user pick them while adding;
+    // picking none still adds to the default one.
+    final categoryBackend = ref.read(activeBackendProvider);
+    var nowInLibrary = !manga.inLibrary;
+    if (categoryBackend is CategoryCapableBackend) {
+      final CategoryOutcome outcome;
+      try {
+        outcome = await pickAndApplyCategories(context,
+            backend: categoryBackend,
+            mangaId: manga.id,
+            inLibrary: manga.inLibrary);
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('Failed: $e')));
+        }
+        return;
+      }
+      if (outcome == CategoryOutcome.cancelled) return;
+      nowInLibrary = outcome != CategoryOutcome.removed;
+      ref.invalidate(libraryListProvider);
+      ref.invalidate(mangaListProvider);
+    }
     setState(() => _busyIds.add(manga.id));
     try {
-      if (manga.inLibrary) {
-        await backend.removeFromLibrary(manga.id);
-      } else {
-        await backend.addToLibrary(manga.id);
+      if (categoryBackend is! CategoryCapableBackend) {
+        if (manga.inLibrary) {
+          await backend.removeFromLibrary(manga.id);
+        } else {
+          await backend.addToLibrary(manga.id);
+        }
       }
       final index = _items.indexWhere((m) => m.id == manga.id);
       if (index != -1 && mounted) {
-        setState(() => _items[index] = _withLibrary(manga, !manga.inLibrary));
+        setState(() => _items[index] = _withLibrary(manga, nowInLibrary));
       }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(manga.inLibrary
-              ? 'Removed "${manga.title}" from library'
-              : 'Added "${manga.title}" to library'),
+          content: Text(nowInLibrary
+              ? (manga.inLibrary
+                  ? 'Updated "${manga.title}"'
+                  : 'Added "${manga.title}" to library')
+              : 'Removed "${manga.title}" from library'),
         ));
       }
     } catch (e) {
