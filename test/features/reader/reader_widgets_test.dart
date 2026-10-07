@@ -102,6 +102,36 @@ void main() {
     });
   });
 
+  testWidgets(
+      'a resume jump that never reaches its target does not report page 1',
+      (tester) async {
+    tester.view.physicalSize = const Size(400, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    // Pages whose images never load, as when the server is slow or offline:
+    // the content stays too short to scroll to page 6.
+    final broken = [
+      for (var i = 0; i < 10; i++)
+        KsPage(index: i, imageUrl: '', localPath: '/nonexistent/$i.png'),
+    ];
+    final reported = <int>[];
+    await tester.pumpWidget(MaterialApp(
+      home: WebtoonReaderView(
+        pages: broken,
+        initialPage: 5,
+        onPageChanged: reported.add,
+      ),
+    ));
+    // Longer than the view gives up trying (25 attempts at 120 ms).
+    for (var i = 0; i < 40; i++) {
+      await tester.pump(const Duration(milliseconds: 150));
+    }
+
+    // Reporting 0 here would overwrite the saved position with page 1.
+    expect(reported.where((p) => p == 0), isEmpty);
+  });
+
   group('page slider', () {
     testWidgets('shows current / total', (tester) async {
       await tester.pumpWidget(_overlay(currentPage: 3, totalPages: 12));

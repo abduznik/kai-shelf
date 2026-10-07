@@ -96,11 +96,18 @@ class _WebtoonReaderViewState extends State<WebtoonReaderView> {
       _stableChecks = 0;
       _controller.jumpTo(target);
     }
-    if (_stableChecks >= 2 || _settleAttempts >= _maxSettleAttempts) {
+    final settled = _stableChecks >= 2;
+    if (settled || _settleAttempts >= _maxSettleAttempts) {
       _settleTimer?.cancel();
       _settleTimer = null;
-      _lastReportedPage = _estimatedIndex;
-      widget.onPageChanged(_lastReportedPage);
+      // Only report a position we actually reached. If the images never
+      // loaded enough to reach the target (offline, slow server), the
+      // estimate is still near the top, and reporting it would overwrite
+      // the saved resume point with page 1.
+      if (settled) {
+        _lastReportedPage = _estimatedIndex;
+        widget.onPageChanged(_lastReportedPage);
+      }
     }
   }
 

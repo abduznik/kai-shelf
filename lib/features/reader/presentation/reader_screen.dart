@@ -10,6 +10,7 @@ import '../../../core/providers/incognito_provider.dart';
 import '../../../core/providers/library_providers.dart';
 import '../../../core/providers/reader_prefs_provider.dart';
 import '../../../core/providers/storage_providers.dart';
+import '../../../core/storage/reading_progress_repository.dart';
 import '../domain/page_prefetcher.dart';
 import '../domain/reader_progress_tracker.dart';
 import '../domain/reading_flow.dart';
@@ -119,25 +120,31 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   /// the chapter list (works on web, where there is no local database); the
   /// local row is only a fallback for unsynced progress.
   Future<int> _resolveStartPage(int pageCount) async {
+    // Each source is looked up independently: offline, the chapter list
+    // fails but a downloaded chapter's local progress row is still there.
+    KsChapter? chapter;
     try {
       final chapters = await ref.read(chaptersProvider(widget.mangaId).future);
-      final chapter = chapters.where((c) => c.id == widget.chapterId);
+      chapter = chapters.where((c) => c.id == widget.chapterId).firstOrNull;
+    } catch (_) {}
+
+    ReadingProgress? local;
+    try {
       final connection = ref.read(activeConnectionProvider);
-      final local = connection == null
-          ? null
-          : await ref
-              .read(readingProgressRepositoryProvider)
-              ?.get(serverId: connection.serverId, chapterId: widget.chapterId);
-      return resumePageFor(
-        pageCount: pageCount,
-        serverRead: chapter.isNotEmpty && chapter.first.read,
-        serverLastPage: chapter.isEmpty ? null : chapter.first.lastPageRead,
-        localRead: local?.read ?? false,
-        localLastPage: local?.lastPageRead,
-      );
-    } catch (_) {
-      return 0;
-    }
+      if (connection != null) {
+        local = await ref
+            .read(readingProgressRepositoryProvider)
+            ?.get(serverId: connection.serverId, chapterId: widget.chapterId);
+      }
+    } catch (_) {}
+
+    return resumePageFor(
+      pageCount: pageCount,
+      serverRead: chapter?.read ?? false,
+      serverLastPage: chapter?.lastPageRead,
+      localRead: local?.read ?? false,
+      localLastPage: local?.lastPageRead,
+    );
   }
 
   void _goToChapter(KsChapter chapter) {
