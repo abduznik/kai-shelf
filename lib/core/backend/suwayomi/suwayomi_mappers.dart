@@ -247,4 +247,34 @@ class SuwayomiMappers {
       pageCount: json['pageCount'] as int?,
     );
   }
+
+  /// [json] is a chapter node with its parent `manga { id title
+  /// thumbnailUrl }`. `lastReadAt` arrives as a string of epoch SECONDS.
+  static KsHistoryEntry historyEntryFromJson(
+    Map<String, dynamic> json, {
+    Uri Function(String path)? buildImageUrl,
+    Map<String, String>? coverHeaders,
+  }) {
+    final manga = json['manga'] as Map<String, dynamic>;
+    final thumbnailPath = manga['thumbnailUrl'] as String?;
+    final pageCount = json['pageCount'] as int?;
+    return KsHistoryEntry(
+      mangaId: manga['id'].toString(),
+      mangaTitle: manga['title'] as String,
+      coverUrl: thumbnailPath == null
+          ? null
+          : (buildImageUrl?.call(thumbnailPath) ?? Uri.parse(thumbnailPath))
+              .toString(),
+      coverHeaders: coverHeaders,
+      chapterId: json['id'].toString(),
+      chapterTitle: json['name'] as String,
+      chapterNumber: (json['chapterNumber'] as num?)?.toDouble(),
+      lastPageRead: (json['lastPageRead'] as num?)?.toDouble(),
+      // -1 means the server hasn't fetched the pages yet.
+      pageCount: pageCount != null && pageCount > 0 ? pageCount : null,
+      read: json['isRead'] as bool? ?? false,
+      lastReadAt: DateTime.fromMillisecondsSinceEpoch(
+          int.parse(json['lastReadAt'].toString()) * 1000),
+    );
+  }
 }

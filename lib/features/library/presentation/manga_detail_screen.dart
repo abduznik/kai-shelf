@@ -7,6 +7,7 @@ import '../../../core/backend/server_backend.dart';
 import '../../../core/download/download_queue.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../../core/providers/chapter_sort_provider.dart';
+import '../../../core/providers/incognito_provider.dart';
 import '../../../core/providers/library_providers.dart';
 import '../../../core/providers/storage_providers.dart';
 import '../../../core/widgets/authenticated_image.dart';
@@ -143,7 +144,8 @@ class MangaDetailScreen extends ConsumerWidget {
                               icon: Icon(chapter.read
                                   ? Icons.visibility_off_outlined
                                   : Icons.visibility_outlined),
-                              onPressed: () => _toggleRead(ref, chapter),
+                              onPressed: () =>
+                                  _toggleRead(context, ref, chapter),
                             ),
                             DownloadChapterButton(
                               mangaId: mangaId,
@@ -209,9 +211,17 @@ class MangaDetailScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _toggleRead(WidgetRef ref, KsChapter chapter) async {
+  Future<void> _toggleRead(
+      BuildContext context, WidgetRef ref, KsChapter chapter) async {
     final backend = ref.read(activeBackendProvider);
     if (backend == null) return;
+    // A manual mark is a server write that would show up in history, so
+    // incognito refuses it rather than silently recording.
+    if (ref.read(incognitoProvider)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Incognito is on: read state is not changed.')));
+      return;
+    }
     await backend.updateReadProgress(chapter.id, read: !chapter.read);
     ref.invalidate(chaptersProvider(mangaId));
   }

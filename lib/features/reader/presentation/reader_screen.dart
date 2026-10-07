@@ -6,11 +6,13 @@ import '../../../core/backend/models.dart';
 import '../../../core/download/download_queue.dart';
 import '../../../core/download/offline_page_resolver.dart';
 import '../../../core/providers/backend_providers.dart';
+import '../../../core/providers/incognito_provider.dart';
 import '../../../core/providers/library_providers.dart';
 import '../../../core/providers/reader_prefs_provider.dart';
 import '../../../core/providers/storage_providers.dart';
 import '../domain/page_prefetcher.dart';
 import '../domain/reader_progress_tracker.dart';
+import '../../../core/widgets/incognito_badge.dart';
 import 'paged_reader_view.dart';
 import 'webtoon_reader_view.dart';
 import 'widgets/reader_controls_overlay.dart';
@@ -51,6 +53,9 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   /// come from disk. Web has no durable filesystem, so this is native-only,
   /// matching the existing download-feature guard.
   Future<void> _maybeStartBackgroundDownload() async {
+    // Incognito: no writes to disk on the user's behalf. The trigger flag is
+    // left unset so leaving incognito mid-chapter can still start it.
+    if (ref.read(incognitoProvider)) return;
     if (_backgroundDownloadTriggered || kIsWeb) return;
     _backgroundDownloadTriggered = true;
 
@@ -109,6 +114,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
 
     _tracker = ReaderProgressTracker(
       totalPages: totalPages,
+      isIncognito: () => ref.read(incognitoProvider),
       onSaveLocal: ({required read, required lastPageRead}) async {
         await repository?.save(
           serverId: connection.serverId,
@@ -169,6 +175,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                         pages: pages,
                         onPageChanged: (index) => _onPageChanged(index, pages)),
               ),
+              const IncognitoBadge.positioned(),
               ReaderControlsOverlay(
                 visible: _controlsVisible,
                 currentPage: _currentPage,

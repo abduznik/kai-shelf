@@ -71,3 +71,13 @@ abstract class ExtensionCapableBackend {
   Future<void> addExtensionRepo(String indexUrl);
   Future<void> removeExtensionRepo(String indexUrl);
 }
+
+/// Optional capability for backends that record which chapters were read
+/// and when, so the app can show a "recently read" list without keeping its
+/// own copy. All three servers can: Suwayomi via chapter `lastReadAt`,
+/// Komga via book read progress, Kavita via chapter reading progress.
+abstract class HistoryCapableBackend {
+  /// Recently read chapters, newest first. [offset]/[limit] page through the
+  /// result; an empty list means there is nothing further.
+  Future<List<KsHistoryEntry>> getHistory({int limit = 50, int offset = 0});
+}

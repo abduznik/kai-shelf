@@ -378,3 +378,39 @@ class KsSourcePage {
   final List<KsSourceManga> items;
   final bool hasNextPage;
 }
+
+/// One recently read chapter, as reported by the server's own read state.
+/// Carries the manga's title and cover alongside the chapter so a history
+/// list can render without a lookup per row.
+class KsHistoryEntry {
+  const KsHistoryEntry({
+    required this.mangaId,
+    required this.mangaTitle,
+    required this.chapterId,
+    required this.chapterTitle,
+    required this.lastReadAt,
+    this.coverUrl,
+    this.coverHeaders,
+    this.chapterNumber,
+    this.lastPageRead,
+    this.pageCount,
+    this.read = false,
+  });
+
+  final String mangaId;
+  final String mangaTitle;
+  final String? coverUrl;
+
+  /// Same role as [KsManga.coverHeaders].
+  final Map<String, String>? coverHeaders;
+  final String chapterId;
+  final String chapterTitle;
+  final double? chapterNumber;
+
+  /// Zero-based index of the last page opened, matching
+  /// [KsChapter.lastPageRead].
+  final double? lastPageRead;
+  final int? pageCount;
+  final bool read;
+  final DateTime lastReadAt;
+}

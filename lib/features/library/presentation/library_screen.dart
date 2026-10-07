@@ -6,6 +6,7 @@ import '../../../core/backend/models.dart';
 import '../../../core/backend/server_backend.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../../core/providers/library_providers.dart';
+import '../../../core/widgets/incognito_badge.dart';
 import '../domain/library_filter.dart';
 import 'widgets/library_filter_sheet.dart';
 import 'widgets/manga_grid_tile.dart';
@@ -56,6 +57,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       appBar: AppBar(
         title: const Text('Library'),
         actions: [
+          const IncognitoBadge(),
           IconButton(
             icon: Badge(
               isLabelVisible: _filter.activeCount > 0,

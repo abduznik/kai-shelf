@@ -93,4 +93,42 @@ void main() {
     after = (await backend.getChapters(series.id)).first;
     expect(after.read, isTrue);
   }, skip: skip);
+
+  test('history lists read chapters newest first', () async {
+    final series = (await backend.getAllManga(searchQuery: 'Beta')).first;
+    final chapters = await backend.getChapters(series.id);
+    expect(chapters.length, 3);
+
+    // Komga stamps progress with one-second resolution, so space the reads.
+    await backend.updateReadProgress(chapters[0].id,
+        read: false, lastPageRead: 1);
+    await Future<void>.delayed(const Duration(milliseconds: 1100));
+    await backend.updateReadProgress(chapters[1].id,
+        read: false, lastPageRead: 2);
+    await Future<void>.delayed(const Duration(milliseconds: 1100));
+    await backend.updateReadProgress(chapters[2].id, read: true);
+
+    final history = await backend.getHistory(limit: 20);
+    expect(history.take(3).map((e) => e.chapterId),
+        [chapters[2].id, chapters[1].id, chapters[0].id]);
+    final top = history.first;
+    expect(top.read, isTrue);
+    expect(top.mangaId, series.id);
+    expect(top.mangaTitle, series.title);
+    expect(top.pageCount, 4);
+    expect(history[1].read, isFalse);
+    expect(history[1].lastPageRead, 2);
+    expect(history[0].lastReadAt.isAfter(history[1].lastReadAt), isTrue);
+
+    final cover =
+        await http.get(Uri.parse(top.coverUrl!), headers: top.coverHeaders);
+    expect(cover.statusCode, 200);
+
+    // Paging: the second page starts where the first ended.
+    final first = await backend.getHistory(limit: 2);
+    final second = await backend.getHistory(limit: 2, offset: 2);
+    expect(
+        first.map((e) => e.chapterId), history.take(2).map((e) => e.chapterId));
+    expect(second.first.chapterId, history[2].chapterId);
+  }, skip: skip);
 }

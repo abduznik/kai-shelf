@@ -103,6 +103,37 @@ class SuwayomiQueries {
     }
   ''';
 
+  /// Recently read chapters across all manga, newest first. `lastReadAt` is
+  /// 0 for a chapter that was never opened, so the greaterThan filter keeps
+  /// only chapters with real history (confirmed against a live server;
+  /// values are epoch seconds, unlike uploadDate which is milliseconds).
+  static const historyQuery = r'''
+    query History($first: Int!, $offset: Int!) {
+      chapters(
+        filter: { lastReadAt: { greaterThan: "0" } }
+        orderBy: LAST_READ_AT
+        orderByType: DESC
+        first: $first
+        offset: $offset
+      ) {
+        nodes {
+          id
+          name
+          chapterNumber
+          isRead
+          lastPageRead
+          lastReadAt
+          pageCount
+          manga {
+            id
+            title
+            thumbnailUrl
+          }
+        }
+      }
+    }
+  ''';
+
   /// Suwayomi fetches chapter pages lazily: `chapter(id:).pageCount` is -1
   /// until this mutation has run at least once for that chapter (confirmed
   /// against a live server). The returned `pages` list is the actual,
