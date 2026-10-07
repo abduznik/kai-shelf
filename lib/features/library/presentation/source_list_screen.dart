@@ -28,6 +28,11 @@ class _SourceListScreenState extends ConsumerState<SourceListScreen> {
         title: const Text('Discover'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.dynamic_feed_outlined),
+            tooltip: 'Feed',
+            onPressed: () => context.push('/discover/feed'),
+          ),
+          IconButton(
             icon: const Icon(Icons.travel_explore),
             tooltip: 'Search all sources',
             onPressed: () => context.push('/discover/all'),

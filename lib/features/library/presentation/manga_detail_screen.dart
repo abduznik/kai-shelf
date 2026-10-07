@@ -11,6 +11,7 @@ import '../../../core/providers/library_providers.dart';
 import '../../../core/providers/storage_providers.dart';
 import '../../../core/widgets/authenticated_image.dart';
 import '../../downloads/presentation/widgets/download_chapter_button.dart';
+import 'widgets/more_like_this_row.dart';
 
 class MangaDetailScreen extends ConsumerWidget {
   const MangaDetailScreen({super.key, required this.mangaId});
@@ -101,6 +102,7 @@ class MangaDetailScreen extends ConsumerWidget {
                 ),
               ),
             SliverToBoxAdapter(child: _MangaHeader(manga: manga)),
+            SliverToBoxAdapter(child: MoreLikeThisRow(title: manga.title)),
             chaptersAsync.when(
               data: (chapters) {
                 if (chapters.isEmpty) {

@@ -67,6 +67,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           ),
           if (backend is SourceCapableBackend)
             IconButton(
+              icon: const Icon(Icons.auto_awesome_outlined),
+              tooltip: 'Recommended for you',
+              onPressed: () => context.push('/recommended'),
+            ),
+          if (backend is SourceCapableBackend)
+            IconButton(
               icon: const Icon(Icons.explore_outlined),
               tooltip: 'Discover new manga',
               onPressed: () => context.push('/discover'),
