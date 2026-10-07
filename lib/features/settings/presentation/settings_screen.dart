@@ -24,6 +24,14 @@ class SettingsScreen extends ConsumerWidget {
                   const Text('Browse, filter and search installed sources'),
               onTap: () => context.push('/discover'),
             ),
+          if (backend is CategoryCapableBackend)
+            ListTile(
+              leading: const Icon(Icons.label_outline),
+              title:
+                  Text((backend as CategoryCapableBackend).categoryTitlePlural),
+              subtitle: const Text('Create, rename, reorder and delete'),
+              onTap: () => context.push('/categories'),
+            ),
           if (backend is ExtensionCapableBackend)
             ListTile(
               leading: const Icon(Icons.extension_outlined),

@@ -1,6 +1,8 @@
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/add_server_screen.dart';
+import '../../features/categories/presentation/category_manage_screen.dart';
+import '../../features/categories/presentation/category_members_screen.dart';
 import '../../features/downloads/presentation/downloads_screen.dart';
 import '../../features/extensions/presentation/extensions_screen.dart';
 import '../../features/library/presentation/global_search_screen.dart';
@@ -43,6 +45,17 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: '/discover/all',
       builder: (context, state) => const GlobalSearchScreen(),
+    ),
+    GoRoute(
+      path: '/categories',
+      builder: (context, state) => const CategoryManageScreen(),
+    ),
+    GoRoute(
+      path: '/categories/:id',
+      builder: (context, state) => CategoryMembersScreen(
+        categoryId: state.pathParameters['id']!,
+        name: state.uri.queryParameters['name'] ?? 'Category',
+      ),
     ),
     GoRoute(
       path: '/extensions',

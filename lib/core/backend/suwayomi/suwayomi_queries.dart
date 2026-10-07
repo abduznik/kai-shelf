@@ -98,6 +98,7 @@ class SuwayomiQueries {
           isRead
           lastPageRead
           pageCount
+          isBookmarked
         }
       }
     }
@@ -181,6 +182,111 @@ class SuwayomiQueries {
         }
       ) {
         chapter {
+          id
+        }
+      }
+    }
+  ''';
+
+  static const setChapterBookmarkedMutation = r'''
+    mutation SetChapterBookmarked($id: Int!, $bookmarked: Boolean!) {
+      updateChapter(input: { id: $id, patch: { isBookmarked: $bookmarked } }) {
+        chapter {
+          id
+          isBookmarked
+        }
+      }
+    }
+  ''';
+
+  /// `isDefaultCategory` marks the built-in category 0, which the server
+  /// refuses to rename, reorder or delete.
+  static const categoryDetailListQuery = r'''
+    query CategoryDetailList {
+      categories {
+        nodes {
+          id
+          name
+          order
+          isDefaultCategory
+          mangas {
+            totalCount
+          }
+        }
+      }
+    }
+  ''';
+
+  static const createCategoryMutation = r'''
+    mutation CreateCategory($name: String!) {
+      createCategory(input: { name: $name }) {
+        category {
+          id
+          name
+          order
+          isDefaultCategory
+        }
+      }
+    }
+  ''';
+
+  static const renameCategoryMutation = r'''
+    mutation RenameCategory($id: Int!, $name: String!) {
+      updateCategory(input: { id: $id, patch: { name: $name } }) {
+        category {
+          id
+          name
+        }
+      }
+    }
+  ''';
+
+  static const deleteCategoryMutation = r'''
+    mutation DeleteCategory($id: Int!) {
+      deleteCategory(input: { categoryId: $id }) {
+        category {
+          id
+        }
+      }
+    }
+  ''';
+
+  /// `position` is the absolute order value, in which the built-in default
+  /// category always holds 0.
+  static const moveCategoryMutation = r'''
+    mutation MoveCategory($id: Int!, $position: Int!) {
+      updateCategoryOrder(input: { id: $id, position: $position }) {
+        categories {
+          id
+          order
+        }
+      }
+    }
+  ''';
+
+  static const mangaCategoriesQuery = r'''
+    query MangaCategories($id: Int!) {
+      manga(id: $id) {
+        categories {
+          nodes {
+            id
+          }
+        }
+      }
+    }
+  ''';
+
+  /// Unlike adding to the library, this does not touch `inLibrary`, so the
+  /// caller must add the manga to the library first.
+  static const updateMangaCategoriesMutation = r'''
+    mutation UpdateMangaCategories($id: Int!, $add: [Int!], $remove: [Int!]) {
+      updateMangaCategories(
+        input: {
+          id: $id
+          patch: { addToCategories: $add, removeFromCategories: $remove }
+        }
+      ) {
+        manga {
           id
         }
       }
@@ -362,6 +468,7 @@ class SuwayomiQueries {
           isRead
           lastPageRead
           pageCount
+          isBookmarked
         }
       }
     }

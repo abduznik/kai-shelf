@@ -65,6 +65,13 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             tooltip: 'Sort & filter',
             onPressed: () => _openFilters(mangaAsync.valueOrNull ?? const []),
           ),
+          if (backend is CategoryCapableBackend)
+            IconButton(
+              icon: const Icon(Icons.label_outline),
+              tooltip:
+                  'Manage ${(backend as CategoryCapableBackend).categoryNounPlural}',
+              onPressed: () => context.push('/categories'),
+            ),
           if (backend is SourceCapableBackend)
             IconButton(
               icon: const Icon(Icons.explore_outlined),

@@ -6,10 +6,13 @@ import '../../../core/backend/models.dart';
 import '../../../core/backend/server_backend.dart';
 import '../../../core/download/download_queue.dart';
 import '../../../core/providers/backend_providers.dart';
+import '../../../core/providers/category_providers.dart';
 import '../../../core/providers/chapter_sort_provider.dart';
 import '../../../core/providers/library_providers.dart';
 import '../../../core/providers/storage_providers.dart';
 import '../../../core/widgets/authenticated_image.dart';
+import '../../categories/presentation/category_actions.dart';
+import '../../categories/presentation/category_picker_sheet.dart';
 import '../../downloads/presentation/widgets/download_chapter_button.dart';
 
 class MangaDetailScreen extends ConsumerWidget {
@@ -22,14 +25,27 @@ class MangaDetailScreen extends ConsumerWidget {
     final mangaAsync = ref.watch(mangaDetailProvider(mangaId));
     final chaptersAsync = ref.watch(chaptersProvider(mangaId));
     final sortOrder = ref.watch(chapterSortProvider);
+    final backend = ref.watch(activeBackendProvider);
+    final bookmarkedOnly = ref.watch(bookmarkedOnlyProvider(mangaId));
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Manga'),
         actions: [
           mangaAsync.maybeWhen(
-            data: (manga) =>
-                ref.watch(activeBackendProvider) is SourceCapableBackend
+            data: (manga) => backend is CategoryCapableBackend
+                ? IconButton(
+                    tooltip: manga.inLibrary
+                        ? 'Edit ${(backend as CategoryCapableBackend).categoryNounPlural}'
+                        : 'Add to library',
+                    icon: Icon(backend is SourceCapableBackend
+                        ? (manga.inLibrary
+                            ? Icons.favorite
+                            : Icons.favorite_border)
+                        : Icons.label_outline),
+                    onPressed: () => _toggleLibrary(context, ref, manga),
+                  )
+                : backend is SourceCapableBackend
                     ? IconButton(
                         tooltip: manga.inLibrary
                             ? 'Remove from library'
@@ -42,6 +58,17 @@ class MangaDetailScreen extends ConsumerWidget {
                     : const SizedBox.shrink(),
             orElse: () => const SizedBox.shrink(),
           ),
+          if (backend is ChapterBookmarkCapableBackend)
+            IconButton(
+              tooltip: bookmarkedOnly
+                  ? 'Show all chapters'
+                  : 'Show bookmarked chapters only',
+              icon:
+                  Icon(bookmarkedOnly ? Icons.bookmark : Icons.bookmark_border),
+              onPressed: () => ref
+                  .read(bookmarkedOnlyProvider(mangaId).notifier)
+                  .state = !bookmarkedOnly,
+            ),
           IconButton(
             tooltip: sortOrder == ChapterSortOrder.descending
                 ? 'Newest first'
@@ -111,7 +138,19 @@ class MangaDetailScreen extends ConsumerWidget {
                     ),
                   );
                 }
-                final sortedChapters = _sorted(chapters, sortOrder);
+                final sortedChapters = _sorted(
+                    bookmarkedOnly
+                        ? chapters.where((c) => c.bookmarked).toList()
+                        : chapters,
+                    sortOrder);
+                if (sortedChapters.isEmpty) {
+                  return const SliverToBoxAdapter(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Center(child: Text('No bookmarked chapters.')),
+                    ),
+                  );
+                }
                 return SliverPadding(
                   padding: EdgeInsets.only(
                     bottom: MediaQuery.of(context).padding.bottom + 88,
@@ -136,6 +175,16 @@ class MangaDetailScreen extends ConsumerWidget {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
+                            if (backend is ChapterBookmarkCapableBackend)
+                              IconButton(
+                                tooltip: chapter.bookmarked
+                                    ? 'Remove bookmark'
+                                    : 'Bookmark chapter',
+                                icon: Icon(chapter.bookmarked
+                                    ? Icons.bookmark
+                                    : Icons.bookmark_border),
+                                onPressed: () => _toggleBookmark(ref, chapter),
+                              ),
                             IconButton(
                               tooltip: chapter.read
                                   ? 'Mark as unread'
@@ -191,9 +240,20 @@ class MangaDetailScreen extends ConsumerWidget {
   Future<void> _toggleLibrary(
       BuildContext context, WidgetRef ref, KsManga manga) async {
     final backend = ref.read(activeBackendProvider);
-    if (backend is! SourceCapableBackend) return;
-    final capable = backend as SourceCapableBackend;
     try {
+      // With named categories available the heart opens the picker instead
+      // of toggling blindly; a plain add (no pick) still lands in the
+      // default category.
+      if (backend is CategoryCapableBackend) {
+        final outcome = await pickAndApplyCategories(context,
+            backend: backend, mangaId: manga.id, inLibrary: manga.inLibrary);
+        if (outcome == CategoryOutcome.cancelled) return;
+        invalidateCategoryData(ref);
+        ref.invalidate(mangaDetailProvider(mangaId));
+        return;
+      }
+      if (backend is! SourceCapableBackend) return;
+      final capable = backend as SourceCapableBackend;
       if (manga.inLibrary) {
         await capable.removeFromLibrary(manga.id);
       } else {
@@ -207,6 +267,14 @@ class MangaDetailScreen extends ConsumerWidget {
             .showSnackBar(SnackBar(content: Text('Failed: $e')));
       }
     }
+  }
+
+  Future<void> _toggleBookmark(WidgetRef ref, KsChapter chapter) async {
+    final backend = ref.read(activeBackendProvider);
+    if (backend is! ChapterBookmarkCapableBackend) return;
+    await (backend as ChapterBookmarkCapableBackend)
+        .setChapterBookmarked(chapter.id, !chapter.bookmarked);
+    ref.invalidate(chaptersProvider(mangaId));
   }
 
   Future<void> _toggleRead(WidgetRef ref, KsChapter chapter) async {

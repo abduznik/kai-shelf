@@ -18,6 +18,26 @@ class KsLibrary {
   final int mangaCount;
 }
 
+/// A user-named grouping of manga: a Suwayomi category, a Komga collection or
+/// a Kavita collection. Distinct from [KsLibrary], which for Komga/Kavita is
+/// a disk-backed library the user cannot edit.
+class KsCategory {
+  const KsCategory({
+    required this.id,
+    required this.name,
+    this.mangaCount = 0,
+    this.isDefault = false,
+  });
+
+  final String id;
+  final String name;
+  final int mangaCount;
+
+  /// Suwayomi's built-in "Default" category, which holds every library manga
+  /// that has no category of its own. It cannot be renamed, moved or deleted.
+  final bool isDefault;
+}
+
 class KsManga {
   const KsManga({
     required this.id,
@@ -64,6 +84,7 @@ class KsChapter {
     this.read = false,
     this.lastPageRead,
     this.pageCount,
+    this.bookmarked = false,
   });
 
   final String id;
@@ -74,6 +95,10 @@ class KsChapter {
   final bool read;
   final double? lastPageRead;
   final int? pageCount;
+
+  /// Only Suwayomi tracks bookmarks per chapter; Komga and Kavita bookmark
+  /// individual pages instead, so this stays false for them.
+  final bool bookmarked;
 }
 
 class KsPage {

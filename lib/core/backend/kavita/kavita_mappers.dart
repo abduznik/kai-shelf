@@ -9,6 +9,15 @@ class KavitaMappers {
     return KsLibrary(id: json['id'].toString(), name: json['name'] as String);
   }
 
+  /// [json] is a Kavita CollectionDto (`itemCount` is its series count).
+  static KsCategory categoryFromJson(Map<String, dynamic> json) {
+    return KsCategory(
+      id: json['id'].toString(),
+      name: json['title'] as String,
+      mangaCount: (json['itemCount'] as num?)?.toInt() ?? 0,
+    );
+  }
+
   /// [json] is a Kavita SeriesDto; summary/genres live in a separate
   /// SeriesMetadataDto fetched via /api/Series/metadata, merged in here as
   /// [metadata] when available.

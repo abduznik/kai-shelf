@@ -52,6 +52,11 @@ wait_for suwayomi "http://localhost:$PORT_SUWA/api/graphql"
 wait_for komga "http://localhost:$PORT_KOMGA/api/v1/claim"
 wait_for kavita "http://localhost:$PORT_KAVITA/api/health"
 
+echo "==> Seeding Suwayomi's Local source"
+# Gives the category tests a title to file without needing an extension.
+"$CT" cp "$WORK/komga/Series/Alpha Saga" \
+  "$PFX-suwayomi:/home/suwayomi/.local/share/Tachidesk/local/" >/dev/null
+
 echo "==> Seeding Komga"
 curl -sf -X POST "http://localhost:$PORT_KOMGA/api/v1/claim" \
   -H "X-Komga-Email: $KOMGA_EMAIL" -H "X-Komga-Password: $KOMGA_PASSWORD" >/dev/null
