@@ -20,7 +20,12 @@ import 'suwayomi_queries.dart';
 /// request. BASIC_AUTH has no session/expiry to manage and is the only
 /// mode Kai-Shelf supports.
 class SuwayomiBackend
-    implements ServerBackend, SourceCapableBackend, ExtensionCapableBackend {
+    implements
+        ServerBackend,
+        SourceCapableBackend,
+        ExtensionCapableBackend,
+        CategoryCapableBackend,
+        ChapterBookmarkCapableBackend {
   SuwayomiBackend(ServerConnectionInfo connectionInfo,
       {http.Client? httpClient})
       : _connectionInfo = connectionInfo,
@@ -535,6 +540,112 @@ class SuwayomiBackend
     _throwIfAuthError(result);
     _throwIfError(result);
   }
+
+  @override
+  String get categoryNoun => 'category';
+
+  @override
+  bool get canReorderCategories => true;
+
+  @override
+  bool get canCreateEmptyCategory => true;
+
+  Future<QueryResult> _mutate(
+      String document, Map<String, dynamic> variables) async {
+    final result = await _client.mutate(
+      MutationOptions(
+        document: gql(document),
+        variables: variables,
+        fetchPolicy: FetchPolicy.noCache,
+      ),
+    );
+    _throwIfAuthError(result);
+    _throwIfError(result);
+    return result;
+  }
+
+  @override
+  Future<List<KsCategory>> getCategories() async {
+    final result = await _client.query(
+      QueryOptions(
+          document: gql(SuwayomiQueries.categoryDetailListQuery),
+          fetchPolicy: FetchPolicy.networkOnly),
+    );
+    _throwIfAuthError(result);
+    _throwIfError(result);
+    final nodes = result.data?['categories']?['nodes'] as List? ?? [];
+    final sorted = nodes.cast<Map<String, dynamic>>().toList()
+      ..sort((a, b) => (a['order'] as int).compareTo(b['order'] as int));
+    return sorted.map(SuwayomiMappers.categoryFromJson).toList();
+  }
+
+  @override
+  Future<KsCategory> createCategory(String name, {String? firstMangaId}) async {
+    final result =
+        await _mutate(SuwayomiQueries.createCategoryMutation, {'name': name});
+    final category = SuwayomiMappers.categoryFromJson(
+        result.data!['createCategory']['category'] as Map<String, dynamic>);
+    if (firstMangaId != null) {
+      await setMangaCategories(firstMangaId, {category.id});
+    }
+    return category;
+  }
+
+  @override
+  Future<void> renameCategory(String categoryId, String name) => _mutate(
+      SuwayomiQueries.renameCategoryMutation,
+      {'id': int.parse(categoryId), 'name': name});
+
+  @override
+  Future<void> deleteCategory(String categoryId) => _mutate(
+      SuwayomiQueries.deleteCategoryMutation, {'id': int.parse(categoryId)});
+
+  @override
+  Future<void> moveCategory(String categoryId, int newIndex) => _mutate(
+      // Category 0 (Default) always sits first, so the editable ones start
+      // at position 1.
+      SuwayomiQueries.moveCategoryMutation,
+      {'id': int.parse(categoryId), 'position': newIndex + 1});
+
+  Future<Set<String>> _currentCategoryIds(String mangaId) async {
+    final result = await _client.query(
+      QueryOptions(
+        document: gql(SuwayomiQueries.mangaCategoriesQuery),
+        variables: {'id': int.parse(mangaId)},
+        // Not networkOnly: the normalized cache cannot re-read these partial
+        // CategoryType nodes (they only carry an id here) and throws.
+        fetchPolicy: FetchPolicy.noCache,
+      ),
+    );
+    _throwIfAuthError(result);
+    _throwIfError(result);
+    final nodes = result.data?['manga']?['categories']?['nodes'] as List? ?? [];
+    return nodes.map((n) => (n as Map)['id'].toString()).toSet();
+  }
+
+  @override
+  Future<Set<String>> getMangaCategoryIds(String mangaId) =>
+      _currentCategoryIds(mangaId);
+
+  @override
+  Future<void> setMangaCategories(
+      String mangaId, Set<String> categoryIds) async {
+    final current = await _currentCategoryIds(mangaId);
+    final add = categoryIds.difference(current).map(int.parse).toList();
+    final remove = current.difference(categoryIds).map(int.parse).toList();
+    if (add.isEmpty && remove.isEmpty) return;
+    await _mutate(SuwayomiQueries.updateMangaCategoriesMutation,
+        {'id': int.parse(mangaId), 'add': add, 'remove': remove});
+  }
+
+  @override
+  Future<List<KsManga>> getCategoryManga(String categoryId) =>
+      getAllManga(libraryId: categoryId);
+
+  @override
+  Future<void> setChapterBookmarked(String chapterId, bool bookmarked) =>
+      _mutate(SuwayomiQueries.setChapterBookmarkedMutation,
+          {'id': int.parse(chapterId), 'bookmarked': bookmarked});
 
   Map<String, String>? get _coverHeaders => _connectionInfo.extraHeaders.isEmpty
       ? null

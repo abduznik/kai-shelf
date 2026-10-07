@@ -71,3 +71,54 @@ abstract class ExtensionCapableBackend {
   Future<void> addExtensionRepo(String indexUrl);
   Future<void> removeExtensionRepo(String indexUrl);
 }
+
+/// Optional capability for backends with user-editable, named groupings of
+/// manga: Suwayomi categories, Komga collections, Kavita collections. A
+/// manga may belong to several. Feature code checks
+/// `backend is CategoryCapableBackend` and hides category UI otherwise.
+abstract class CategoryCapableBackend {
+  /// What the server calls these ("category" or "collection"), for UI copy.
+  String get categoryNoun;
+
+  /// False when the server keeps categories in a fixed order (Komga and
+  /// Kavita sort collections themselves).
+  bool get canReorderCategories;
+
+  /// False when the server refuses a category with no manga in it (Komga),
+  /// so a new one has to be created together with its first manga.
+  bool get canCreateEmptyCategory;
+
+  Future<List<KsCategory>> getCategories();
+
+  /// Creates a category. [firstMangaId] is required when
+  /// [canCreateEmptyCategory] is false and optional otherwise.
+  Future<KsCategory> createCategory(String name, {String? firstMangaId});
+  Future<void> renameCategory(String categoryId, String name);
+  Future<void> deleteCategory(String categoryId);
+
+  /// Moves a category to [newIndex] among the editable categories (the
+  /// built-in default one is not counted).
+  Future<void> moveCategory(String categoryId, int newIndex);
+
+  /// Ids of the categories [mangaId] currently belongs to.
+  Future<Set<String>> getMangaCategoryIds(String mangaId);
+
+  /// Makes [mangaId] belong to exactly [categoryIds].
+  Future<void> setMangaCategories(String mangaId, Set<String> categoryIds);
+  Future<List<KsManga>> getCategoryManga(String categoryId);
+}
+
+extension CategoryLabels on CategoryCapableBackend {
+  String get categoryNounPlural =>
+      categoryNoun == 'category' ? 'categories' : '${categoryNoun}s';
+
+  /// Capitalised plural, for screen titles.
+  String get categoryTitlePlural =>
+      '${categoryNounPlural[0].toUpperCase()}${categoryNounPlural.substring(1)}';
+}
+
+/// Optional capability for backends that can bookmark whole chapters
+/// (Suwayomi only; Komga and Kavita bookmark pages, not chapters).
+abstract class ChapterBookmarkCapableBackend {
+  Future<void> setChapterBookmarked(String chapterId, bool bookmarked);
+}

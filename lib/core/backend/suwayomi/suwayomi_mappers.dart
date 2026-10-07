@@ -245,6 +245,16 @@ class SuwayomiMappers {
       read: json['isRead'] as bool? ?? false,
       lastPageRead: (json['lastPageRead'] as num?)?.toDouble(),
       pageCount: json['pageCount'] as int?,
+      bookmarked: json['isBookmarked'] as bool? ?? false,
+    );
+  }
+
+  static KsCategory categoryFromJson(Map<String, dynamic> json) {
+    return KsCategory(
+      id: json['id'].toString(),
+      name: json['name'] as String,
+      mangaCount: (json['mangas']?['totalCount'] as int?) ?? 0,
+      isDefault: json['isDefaultCategory'] as bool? ?? false,
     );
   }
 }

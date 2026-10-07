@@ -22,6 +22,14 @@ class KomgaMappers {
     return KsLibrary(id: json['id'] as String, name: json['name'] as String);
   }
 
+  static KsCategory categoryFromJson(Map<String, dynamic> json) {
+    return KsCategory(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      mangaCount: (json['seriesIds'] as List?)?.length ?? 0,
+    );
+  }
+
   /// [json] is a Komga SeriesDto; title/summary/genres/status live in its
   /// nested `metadata` object (SeriesMetadataDto), not on SeriesDto itself.
   static KsManga mangaFromJson(
