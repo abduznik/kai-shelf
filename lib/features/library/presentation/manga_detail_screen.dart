@@ -11,6 +11,7 @@ import '../../../core/providers/library_providers.dart';
 import '../../../core/providers/storage_providers.dart';
 import '../../../core/widgets/authenticated_image.dart';
 import '../../downloads/presentation/widgets/download_chapter_button.dart';
+import '../domain/continue_reading.dart';
 
 class MangaDetailScreen extends ConsumerWidget {
   const MangaDetailScreen({super.key, required this.mangaId});
@@ -101,6 +102,19 @@ class MangaDetailScreen extends ConsumerWidget {
                 ),
               ),
             SliverToBoxAdapter(child: _MangaHeader(manga: manga)),
+            if (chaptersAsync.value case final loaded?)
+              if (continueTarget(loaded) case final target?)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: FilledButton.icon(
+                      onPressed: () =>
+                          _openChapter(context, ref, target.chapter),
+                      icon: const Icon(Icons.play_arrow),
+                      label: Text(target.label),
+                    ),
+                  ),
+                ),
             chaptersAsync.when(
               data: (chapters) {
                 if (chapters.isEmpty) {
@@ -152,8 +166,7 @@ class MangaDetailScreen extends ConsumerWidget {
                             ),
                           ],
                         ),
-                        onTap: () =>
-                            context.push('/reader/$mangaId/${chapter.id}'),
+                        onTap: () => _openChapter(context, ref, chapter),
                       );
                     },
                   ),
@@ -179,6 +192,14 @@ class MangaDetailScreen extends ConsumerWidget {
             Center(child: Text('Failed to load manga: $error')),
       ),
     );
+  }
+
+  Future<void> _openChapter(
+      BuildContext context, WidgetRef ref, KsChapter chapter) async {
+    await context.push('/reader/$mangaId/${chapter.id}');
+    // Progress changed while reading; refresh so read marks and the
+    // continue button reflect it.
+    ref.invalidate(chaptersProvider(mangaId));
   }
 
   List<KsChapter> _sorted(List<KsChapter> chapters, ChapterSortOrder order) {
