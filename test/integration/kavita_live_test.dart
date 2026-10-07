@@ -109,7 +109,10 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 300));
     await backend.updateReadProgress(chapters[2].id, read: true);
 
-    final history = await backend.getHistory(limit: 20);
+    // Other live tests share this server and read chapters too, so look at
+    // this test's own series only.
+    final everything = await backend.getHistory(limit: 50);
+    final history = everything.where((e) => e.mangaId == series.id).toList();
     expect(history.take(3).map((e) => e.chapterId),
         [chapters[2].id, chapters[1].id, chapters[0].id]);
     final top = history.first;
@@ -126,6 +129,6 @@ void main() {
     expect(cover.statusCode, 200);
 
     final second = await backend.getHistory(limit: 2, offset: 2);
-    expect(second.first.chapterId, history[2].chapterId);
+    expect(second.first.chapterId, everything[2].chapterId);
   }, skip: skip);
 }

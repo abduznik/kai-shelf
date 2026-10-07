@@ -231,7 +231,10 @@ void main() {
     await backend.updateReadProgress(chapters[2].id,
         read: true, lastPageRead: 3);
 
-    final history = await backend.getHistory(limit: 20);
+    // Other live tests share this server and read chapters too, so look at
+    // this test's own series only.
+    final everything = await backend.getHistory(limit: 50);
+    final history = everything.where((e) => e.mangaId == manga.id).toList();
     expect(history.take(3).map((e) => e.chapterId),
         [chapters[2].id, chapters[1].id, chapters[0].id]);
     expect(history.first.read, isTrue);
@@ -242,6 +245,6 @@ void main() {
     expect(history[0].lastReadAt.isAfter(history[1].lastReadAt), isTrue);
 
     final second = await backend.getHistory(limit: 2, offset: 2);
-    expect(second.first.chapterId, history[2].chapterId);
+    expect(second.first.chapterId, everything[2].chapterId);
   }, skip: skip);
 }

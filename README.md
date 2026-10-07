@@ -55,6 +55,11 @@ Currently supports **[Suwayomi-Server](https://github.com/Suwayomi/Suwayomi-Serv
 - **Source Search & Filters** — Browse any source's Popular/Latest listings, search it, and narrow results with the source's own filters (genres, status, sort, tags…); search all sources at once
 - **Preview Before Adding** — Open any search result to read its details and chapters, and even read it, without adding it to your library first
 - **Stays Signed In** — Your server connection is remembered securely between launches
+- **Reading Flow** — Resume exactly where you stopped, a page slider to jump to any page, previous/next chapter buttons, and a Continue reading button on every title
+- **History** — A tab of recently read chapters grouped by day, with one-tap resume
+- **Incognito Mode** — Read without saving progress, history or downloads
+- **Named Bookmarks** — Your own categories (Suwayomi) or collections (Komga, Kavita), several per title, plus per-chapter bookmarks on Suwayomi
+- **Recommendations and Feed** — More like this on every title and Recommended for you from AniList, plus a feed of the latest releases across your sources
 - **Library Filters** — Sort and filter by status and genre (include or exclude), on top of title search
 - **Dark & Light Themes** — Adaptive themes that follow your system settings
 - **Cross-Platform** — One codebase, native feel on Android, iOS, Windows, and Web

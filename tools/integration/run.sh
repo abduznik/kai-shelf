@@ -22,7 +22,9 @@ KAVITA_PASSWORD="Kai-test-pw1!"
 cleanup() {
   if [ -z "${KEEP:-}" ]; then
     "$CT" rm -f "$PFX-suwayomi" "$PFX-komga" "$PFX-kavita" >/dev/null 2>&1 || true
-    rm -rf "$WORK"
+    # Files written by the containers may not be deletable by this user; a
+    # leftover temp dir must not turn a passing run into a failure.
+    rm -rf "$WORK" 2>/dev/null || true
   fi
 }
 trap cleanup EXIT

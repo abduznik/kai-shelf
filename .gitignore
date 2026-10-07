@@ -22,3 +22,4 @@ ios/Flutter/Flutter.podspec
 *.log
 *.pyc
 .DS_Store
+.claude/
