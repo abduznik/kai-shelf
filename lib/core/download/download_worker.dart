@@ -21,6 +21,53 @@ class DownloadWorker {
     return p.join(baseDir.path, 'downloads', serverId, mangaId, chapterId);
   }
 
+  /// Root folder holding every downloaded chapter, across sessions.
+  Future<String> downloadsRootPath() async {
+    final baseDir = await getApplicationSupportDirectory();
+    return p.join(baseDir.path, 'downloads');
+  }
+
+  /// Deletes a chapter's directory and every file inside it.
+  Future<void> deleteChapterDirectory({
+    required String serverId,
+    required String mangaId,
+    required String chapterId,
+  }) async {
+    final dir = Directory(await chapterDirectoryPath(
+      serverId: serverId,
+      mangaId: mangaId,
+      chapterId: chapterId,
+    ));
+    if (await dir.exists()) {
+      await dir.delete(recursive: true);
+    }
+  }
+
+  /// Sum of the sizes of every file stored under the downloads root.
+  ///
+  /// Tolerates files vanishing mid-scan (a deletion racing this walk): they
+  /// simply do not count, instead of failing the whole figure.
+  Future<int> downloadsStorageBytes() async {
+    try {
+      final root = Directory(await downloadsRootPath());
+      if (!await root.exists()) return 0;
+      var total = 0;
+      await for (final entity
+          in root.list(recursive: true, followLinks: false)) {
+        if (entity is! File) continue;
+        try {
+          total += await entity.length();
+        } catch (_) {
+          // Deleted while scanning — it no longer occupies storage.
+        }
+      }
+      return total;
+    } catch (_) {
+      // Downloads root unreadable or removed: nothing to account for.
+      return 0;
+    }
+  }
+
   Future<String> downloadPage({
     required String url,
     required Map<String, String>? headers,
