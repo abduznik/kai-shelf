@@ -8,6 +8,7 @@ import '../../../core/providers/backend_providers.dart';
 import '../../../core/providers/library_providers.dart';
 import '../../../core/widgets/incognito_badge.dart';
 import '../domain/library_filter.dart';
+import 'library_filter_provider.dart';
 import 'widgets/library_filter_sheet.dart';
 import 'widgets/manga_grid_tile.dart';
 
@@ -20,11 +21,13 @@ class LibraryScreen extends ConsumerStatefulWidget {
 
 class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   String? _selectedLibraryId;
-  LibraryFilter _filter = const LibraryFilter();
 
   @override
   Widget build(BuildContext context) {
     final backend = ref.watch(activeBackendProvider);
+    // Filter state lives in a provider, not here, so the title screen's
+    // genre chips can hand a genre over and land on a filtered library.
+    final filter = ref.watch(libraryFilterProvider);
 
     if (backend == null) {
       return Scaffold(
@@ -60,8 +63,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           const IncognitoBadge(),
           IconButton(
             icon: Badge(
-              isLabelVisible: _filter.activeCount > 0,
-              label: Text('${_filter.activeCount}'),
+              isLabelVisible: filter.activeCount > 0,
+              label: Text('${filter.activeCount}'),
               child: const Icon(Icons.filter_list),
             ),
             tooltip: 'Sort & filter',
@@ -104,8 +107,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 isDense: true,
                 border: OutlineInputBorder(),
               ),
-              onChanged: (value) =>
-                  setState(() => _filter = _filter.copyWith(query: value)),
+              onChanged: (value) {
+                final notifier = ref.read(libraryFilterProvider.notifier);
+                notifier.state = notifier.state.copyWith(query: value);
+              },
             ),
           ),
         ),
@@ -151,7 +156,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
           Expanded(
             child: mangaAsync.when(
               data: (allManga) {
-                final mangaList = _filter.apply(allManga);
+                final mangaList = filter.apply(allManga);
                 if (mangaList.isEmpty) {
                   return const Center(child: Text('No manga found.'));
                 }
@@ -200,8 +205,9 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       context: context,
       isScrollControlled: true,
       builder: (_) => LibraryFilterSheet(
-          initial: _filter, genres: LibraryFilter.genresOf(all)),
+          initial: ref.read(libraryFilterProvider),
+          genres: LibraryFilter.genresOf(all)),
     );
-    if (result != null) setState(() => _filter = result);
+    if (result != null) ref.read(libraryFilterProvider.notifier).state = result;
   }
 }
