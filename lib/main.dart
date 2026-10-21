@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/providers/backend_providers.dart';
 import 'core/providers/incognito_provider.dart';
+import 'core/providers/notification_providers.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/router/app_router.dart';
 import 'core/update/update_check_provider.dart';
@@ -35,6 +36,7 @@ class _KaiShelfAppState extends ConsumerState<KaiShelfApp> {
     super.initState();
     _restoreSession();
     _checkForUpdates();
+    _startChapterNotifications();
   }
 
   /// Asks GitHub for the latest release once the app is up. Fire-and-forget
@@ -58,6 +60,33 @@ class _KaiShelfAppState extends ConsumerState<KaiShelfApp> {
       appRouter.go('/library');
     }
     if (mounted) setState(() => _restoring = false);
+    // After the restore, so a notification-tap route opens with a backend
+    // already available to load the title from.
+    await _openNotificationRouteIfAny();
+  }
+
+  /// Brings the new-chapter feature online (issue #9): initialise the
+  /// notification plugin so taps and cold starts can route, then re-arm the
+  /// background schedule when the feature is enabled. A fresh, disabled
+  /// install does nothing here beyond the plugin init.
+  Future<void> _startChapterNotifications() async {
+    final presenter = ref.read(notificationPresenterProvider);
+    if (presenter == null) return; // Feature hidden on this platform.
+    try {
+      await presenter.ensureInitialised();
+      await ref.read(notificationControllerProvider)?.start();
+    } catch (_) {
+      // Notification plumbing can never keep the app from starting; worst
+      // case the settings toggle is the only thing that works.
+    }
+  }
+
+  /// Opens the title a notification announced, when (and only when) the app
+  /// was launched by tapping one.
+  Future<void> _openNotificationRouteIfAny() async {
+    final route =
+        await ref.read(notificationPresenterProvider)?.consumeLaunchRoute();
+    if (route != null && mounted) appRouter.go(route);
   }
 
   @override

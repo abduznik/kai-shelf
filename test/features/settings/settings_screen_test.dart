@@ -4,7 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:kai_shelf/core/notifications/notification_settings.dart';
 import 'package:kai_shelf/core/providers/incognito_provider.dart';
+import 'package:kai_shelf/core/providers/notification_providers.dart';
 import 'package:kai_shelf/core/providers/reader_prefs_provider.dart';
 import 'package:kai_shelf/core/providers/theme_provider.dart';
 import 'package:kai_shelf/core/update/external_link.dart';
@@ -164,7 +166,9 @@ void main() {
   testWidgets('Downloads tile opens the downloads route', (tester) async {
     await pumpSettings(tester);
 
-    await tester.tap(find.widgetWithText(ListTile, 'Downloads'));
+    final tile = find.widgetWithText(ListTile, 'Downloads');
+    await tester.scrollUntilVisible(tile, 300);
+    await tester.tap(tile);
     await tester.pumpAndSettle();
     expect(find.byType(_DownloadsStub), findsOneWidget,
         reason: 'the Downloads tile must push /downloads');
@@ -174,14 +178,58 @@ void main() {
     await pumpSettings(tester);
     final container = containerOf(tester);
 
-    expect(tester.widget<Switch>(find.byType(Switch)).value, isFalse);
-    await tester.tap(find.byType(Switch));
+    // Scoped to the incognito row: the notifications section (issue #9) adds
+    // a second switch to this screen on Android, which is what tests run as.
+    final incognitoSwitch = find.descendant(
+      of: find.widgetWithText(SwitchListTile, 'Incognito mode'),
+      matching: find.byType(Switch),
+    );
+
+    expect(tester.widget<Switch>(incognitoSwitch).value, isFalse);
+    await tester.tap(incognitoSwitch);
     await tester.pumpAndSettle();
 
-    expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+    expect(tester.widget<Switch>(incognitoSwitch).value, isTrue);
     expect(container.read(incognitoProvider), isTrue);
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getBool(incognitoPrefKey), isTrue);
+  });
+
+  testWidgets('notifications section toggles the feature (issue #9)',
+      (tester) async {
+    await pumpSettings(tester);
+
+    final alertsSwitch = find.descendant(
+      of: find.widgetWithText(SwitchListTile, 'New chapter alerts'),
+      matching: find.byType(Switch),
+    );
+    expect(alertsSwitch, findsOneWidget,
+        reason: 'Android must surface the new-chapter toggle');
+
+    // The frequency row only exists while the feature is on.
+    expect(find.text('Check frequency'), findsNothing);
+
+    await tester.scrollUntilVisible(alertsSwitch, 300);
+    await tester.tap(alertsSwitch);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<Switch>(alertsSwitch).value, isTrue);
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool(notificationsEnabledKey), isTrue);
+    expect(find.text('Check frequency'), findsOneWidget,
+        reason: 'enabling must reveal the interval choice');
+  });
+
+  testWidgets('platforms without support hide the whole section (issue #9)',
+      (tester) async {
+    await pumpSettings(
+      tester,
+      overrides: [notificationsSupportedProvider.overrideWithValue(false)],
+    );
+
+    expect(find.text('New chapter alerts'), findsNothing);
+    expect(find.text('Check frequency'), findsNothing);
+    expect(find.text('Notifications'), findsNothing);
   });
 
   testWidgets('a newer release brings a quiet row and a dismissible prompt',
