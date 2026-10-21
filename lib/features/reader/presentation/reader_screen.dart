@@ -199,7 +199,13 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   @override
   Widget build(BuildContext context) {
     final pagesAsync = ref.watch(offlinePagesProvider(widget.chapterId));
-    final mode = ref.watch(readerModeProvider);
+    // The title's own choices beat the global defaults; everything without
+    // an override keeps following [readerModeProvider] exactly as before.
+    final prefs = ref.watch(readerPreferencesProvider(widget.mangaId));
+    final mode = prefs.mode;
+    final direction = prefs.direction;
+    final hasOverride = ref.watch(readerTitleOverridesProvider
+        .select((overrides) => overrides.containsKey(widget.mangaId)));
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -243,6 +249,7 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 child: mode == ReaderMode.paged
                     ? PagedReaderView(
                         pages: pages,
+                        rightToLeft: direction == ReadingDirection.rtl,
                         initialPage: _currentPage,
                         jumpController: _jumpController,
                         onPageChanged: (index) => _onPageChanged(index, pages))
@@ -267,8 +274,19 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
                 currentPage: _currentPage,
                 totalPages: pages.length,
                 mode: mode,
-                onModeChanged: (newMode) =>
-                    ref.read(readerModeProvider.notifier).setMode(newMode),
+                // Overlay changes are remembered for this title only, so
+                // other titles keep following the global defaults.
+                onModeChanged: (newMode) => ref
+                    .read(readerTitleOverridesProvider.notifier)
+                    .setMode(widget.mangaId, newMode),
+                direction: direction,
+                onDirectionChanged: (newDirection) => ref
+                    .read(readerTitleOverridesProvider.notifier)
+                    .setDirection(widget.mangaId, newDirection),
+                hasOverride: hasOverride,
+                onResetToDefault: () => ref
+                    .read(readerTitleOverridesProvider.notifier)
+                    .clear(widget.mangaId),
                 onClose: () => Navigator.of(context).maybePop(),
                 onPageSelected: _jumpController.jumpTo,
                 onPreviousChapter: adjacent.previous == null
