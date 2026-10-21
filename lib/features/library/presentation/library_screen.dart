@@ -65,33 +65,39 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             icon: Badge(
               isLabelVisible: filter.activeCount > 0,
               label: Text('${filter.activeCount}'),
-              child: const Icon(Icons.filter_list),
+              child:
+                  const Icon(Icons.filter_list, semanticLabel: 'Sort & filter'),
             ),
             tooltip: 'Sort & filter',
             onPressed: () => _openFilters(mangaAsync.valueOrNull ?? const []),
           ),
           if (backend is CategoryCapableBackend)
             IconButton(
-              icon: const Icon(Icons.label_outline),
+              icon: Icon(Icons.label_outline,
+                  semanticLabel:
+                      'Manage ${(backend as CategoryCapableBackend).categoryNounPlural}'),
               tooltip:
                   'Manage ${(backend as CategoryCapableBackend).categoryNounPlural}',
               onPressed: () => context.push('/categories'),
             ),
           if (backend is SourceCapableBackend)
             IconButton(
-              icon: const Icon(Icons.auto_awesome_outlined),
+              icon: const Icon(Icons.auto_awesome_outlined,
+                  semanticLabel: 'Recommended for you'),
               tooltip: 'Recommended for you',
               onPressed: () => context.push('/recommended'),
             ),
           if (backend is SourceCapableBackend)
             IconButton(
-              icon: const Icon(Icons.explore_outlined),
+              icon: const Icon(Icons.explore_outlined,
+                  semanticLabel: 'Discover new manga'),
               tooltip: 'Discover new manga',
               onPressed: () => context.push('/discover'),
             ),
           if (backend is ExtensionCapableBackend)
             IconButton(
-              icon: const Icon(Icons.extension_outlined),
+              icon: const Icon(Icons.extension_outlined,
+                  semanticLabel: 'Extensions'),
               tooltip: 'Extensions',
               onPressed: () => context.push('/extensions'),
             ),

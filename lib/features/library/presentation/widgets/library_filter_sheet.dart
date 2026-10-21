@@ -124,7 +124,12 @@ class _LibraryFilterSheetState extends State<LibraryFilterSheet> {
                           avatar: _filter.excludeGenres.contains(g)
                               ? const Icon(Icons.block, size: 16)
                               : null,
-                          label: Text(g),
+                          // An excluded genre is never "selected", so its
+                          // meaning would be silent for screen readers —
+                          // spell it out on the chip's label (issue #16).
+                          label: _filter.excludeGenres.contains(g)
+                              ? Semantics(value: 'Excluded', child: Text(g))
+                              : Text(g),
                           selected: _filter.includeGenres.contains(g),
                           onSelected: (_) => _cycleGenre(g),
                         ),
