@@ -16,6 +16,8 @@ import '../../categories/presentation/category_actions.dart';
 import '../../categories/presentation/category_picker_sheet.dart';
 import '../../downloads/presentation/widgets/download_chapter_button.dart';
 import '../domain/continue_reading.dart';
+import '../domain/library_filter.dart';
+import 'library_filter_provider.dart';
 import 'widgets/more_like_this_row.dart';
 
 class MangaDetailScreen extends ConsumerWidget {
@@ -30,6 +32,8 @@ class MangaDetailScreen extends ConsumerWidget {
     final sortOrder = ref.watch(chapterSortProvider);
     final backend = ref.watch(activeBackendProvider);
     final bookmarkedOnly = ref.watch(bookmarkedOnlyProvider(mangaId));
+    // Shared library filter: the genre chips below toggle a genre in it.
+    final libraryFilter = ref.watch(libraryFilterProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -130,7 +134,13 @@ class MangaDetailScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-            SliverToBoxAdapter(child: _MangaHeader(manga: manga)),
+            SliverToBoxAdapter(
+              child: _MangaHeader(
+                manga: manga,
+                filter: libraryFilter,
+                onGenreTap: (genre) => _filterByGenre(context, ref, genre),
+              ),
+            ),
             if (chaptersAsync.value case final loaded?)
               if (continueTarget(loaded) case final target?)
                 SliverToBoxAdapter(
@@ -245,6 +255,23 @@ class MangaDetailScreen extends ConsumerWidget {
             Center(child: Text('Failed to load manga: $error')),
       ),
     );
+  }
+
+  /// Tapping a genre chip on the title screen jumps back to the library
+  /// filtered by that genre (issue #7). Tapping a genre that is already
+  /// included clears it again, so the chips double as a toggle.
+  void _filterByGenre(BuildContext context, WidgetRef ref, String genre) {
+    final notifier = ref.read(libraryFilterProvider.notifier);
+    final filter = notifier.state;
+    final include = {...filter.includeGenres};
+    final exclude = {...filter.excludeGenres};
+    if (!include.remove(genre)) {
+      include.add(genre);
+      exclude.remove(genre);
+    }
+    notifier.state =
+        filter.copyWith(includeGenres: include, excludeGenres: exclude);
+    context.go('/library');
   }
 
   Future<void> _openChapter(
@@ -369,9 +396,18 @@ class MangaDetailScreen extends ConsumerWidget {
 enum _BatchDownloadOption { all, next5, next10 }
 
 class _MangaHeader extends StatelessWidget {
-  const _MangaHeader({required this.manga});
+  const _MangaHeader({
+    required this.manga,
+    required this.filter,
+    required this.onGenreTap,
+  });
 
   final KsManga manga;
+  final LibraryFilter filter;
+
+  /// Called with the tapped genre, so the title screen can hand it to the
+  /// library as a filter.
+  final ValueChanged<String> onGenreTap;
 
   @override
   Widget build(BuildContext context) {
@@ -411,9 +447,15 @@ class _MangaHeader extends StatelessWidget {
                     runSpacing: 6,
                     children: [
                       for (final genre in manga.genres)
-                        Chip(
+                        FilterChip(
                           label:
                               Text(genre, style: const TextStyle(fontSize: 11)),
+                          // Reflects the shared library filter, so a genre
+                          // already narrowing the library reads as selected.
+                          selected: filter.includeGenres.any((g) =>
+                              g.trim().toLowerCase() ==
+                              genre.trim().toLowerCase()),
+                          onSelected: (_) => onGenreTap(genre),
                           visualDensity: VisualDensity.compact,
                           materialTapTargetSize:
                               MaterialTapTargetSize.shrinkWrap,
