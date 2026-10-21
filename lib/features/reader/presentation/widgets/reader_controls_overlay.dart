@@ -11,6 +11,10 @@ class ReaderControlsOverlay extends StatefulWidget {
     required this.mode,
     required this.onModeChanged,
     required this.onClose,
+    this.direction = ReadingDirection.ltr,
+    this.onDirectionChanged,
+    this.hasOverride = false,
+    this.onResetToDefault,
     this.onPageSelected,
     this.onPreviousChapter,
     this.onNextChapter,
@@ -22,6 +26,17 @@ class ReaderControlsOverlay extends StatefulWidget {
   final ReaderMode mode;
   final ValueChanged<ReaderMode> onModeChanged;
   final VoidCallback onClose;
+
+  /// Reading order of the paged view. Webtoon mode is a vertical scroll, so
+  /// it has no direction and hides the control.
+  final ReadingDirection direction;
+  final ValueChanged<ReadingDirection>? onDirectionChanged;
+
+  /// Whether this title carries its own mode/direction; the reset action is
+  /// only offered when there is something to reset.
+  final bool hasOverride;
+  final VoidCallback? onResetToDefault;
+
   final ValueChanged<int>? onPageSelected;
 
   /// Null disables the button (no chapter in that direction).
@@ -92,6 +107,37 @@ class _ReaderControlsOverlayState extends State<ReaderControlsOverlay> {
                           mode == ReaderMode.paged
                               ? ReaderMode.webtoon
                               : ReaderMode.paged),
+                    ),
+                    // Only paged mode has a page order; webtoon scrolls one
+                    // way regardless, so the control would be a lie there.
+                    if (mode == ReaderMode.paged)
+                      IconButton(
+                        icon: Icon(
+                          widget.direction == ReadingDirection.rtl
+                              ? Icons.format_textdirection_r_to_l
+                              : Icons.format_textdirection_l_to_r,
+                          color: Colors.white,
+                        ),
+                        disabledColor: Colors.white24,
+                        tooltip: widget.direction == ReadingDirection.rtl
+                            ? 'Read left to right'
+                            : 'Read right to left',
+                        onPressed: widget.onDirectionChanged == null
+                            ? null
+                            : () => widget.onDirectionChanged!(
+                                widget.direction == ReadingDirection.rtl
+                                    ? ReadingDirection.ltr
+                                    : ReadingDirection.rtl),
+                      ),
+                    IconButton(
+                      icon: const Icon(Icons.settings_backup_restore,
+                          color: Colors.white),
+                      disabledColor: Colors.white24,
+                      tooltip: 'Reset to default',
+                      onPressed:
+                          widget.hasOverride && widget.onResetToDefault != null
+                              ? widget.onResetToDefault
+                              : null,
                     ),
                   ],
                 ),
