@@ -121,14 +121,24 @@ Multiple servers supported — switch between them from the sidebar.
 
 ## Roadmap
 
+Progress toward the next release is tracked in the [v1.3.0 milestone](https://github.com/abduznik/kai-shelf/milestone/1).
+
+**Shipped:**
+
 - [x] Suwayomi: extension manager, source browse/search/filters
 - [x] Komga server backend
 - [x] Kavita server backend
-- [ ] Reading list / bookmarks
-- [ ] Custom reading modes (webtoon, right-to-left)
-- [ ] Notification support for new chapters
-- [ ] macOS and Linux desktop builds
-- [ ] OPDS catalog browsing
+- [x] Preview before adding, include/exclude tag filters (1.1.0)
+- [x] Named bookmarks — categories/collections, per-chapter on Suwayomi (1.2.0)
+- [x] Reading flow, history, incognito mode, recommendations & feed (1.2.0)
+
+**Planned:**
+
+- [ ] Tap a tag on a title to filter the library ([#7](https://github.com/abduznik/kai-shelf/issues/7))
+- [ ] Custom reading modes — webtoon, right-to-left, per-title overrides ([#8](https://github.com/abduznik/kai-shelf/issues/8))
+- [ ] Notification support for new chapters ([#9](https://github.com/abduznik/kai-shelf/issues/9))
+- [ ] macOS and Linux desktop builds ([#10](https://github.com/abduznik/kai-shelf/issues/10))
+- [ ] OPDS catalog browsing ([#11](https://github.com/abduznik/kai-shelf/issues/11)) — stretch
 
 ## Contributing
 
