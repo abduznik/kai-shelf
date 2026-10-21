@@ -11,6 +11,7 @@ import '../../../core/providers/chapter_sort_provider.dart';
 import '../../../core/providers/incognito_provider.dart';
 import '../../../core/providers/library_providers.dart';
 import '../../../core/providers/storage_providers.dart';
+import '../../../core/update/external_link.dart';
 import '../../../core/widgets/authenticated_image.dart';
 import '../../categories/presentation/category_actions.dart';
 import '../../categories/presentation/category_picker_sheet.dart';
@@ -294,6 +295,18 @@ class MangaDetailScreen extends ConsumerWidget {
 
   Future<void> _openChapter(
       BuildContext context, WidgetRef ref, KsChapter chapter) async {
+    // OPDS "chapters" are whole files (EPUB/PDF/...), not page sets, and
+    // reading them in-app is out of scope — so hand the acquisition URL to
+    // the platform instead of pushing the reader at bytes it can't render.
+    final backend = ref.read(activeBackendProvider);
+    if (backend is AcquisitionOpenCapableBackend) {
+      final url = (backend as AcquisitionOpenCapableBackend)
+          .acquisitionUrlForChapter(chapter.id);
+      if (url != null) {
+        await openExternalLink(context, ref, url.toString());
+        return;
+      }
+    }
     await context.push('/reader/$mangaId/${chapter.id}');
     // Progress changed while reading; refresh so read marks and the
     // continue button reflect it.

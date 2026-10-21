@@ -4,6 +4,7 @@ import '../backend/detector/backend_detector.dart';
 import '../backend/komga/komga_backend.dart';
 import '../backend/kavita/kavita_backend.dart';
 import '../backend/models.dart';
+import '../backend/opds/opds_backend.dart';
 import '../backend/server_backend.dart';
 import '../backend/suwayomi/suwayomi_backend.dart';
 import '../storage/secure_credentials.dart';
@@ -31,6 +32,8 @@ final activeBackendProvider = Provider<ServerBackend?>((ref) {
       return KomgaBackend(connection);
     case BackendType.kavita:
       return KavitaBackend(connection);
+    case BackendType.opds:
+      return OpdsBackend(connection);
   }
 });
 

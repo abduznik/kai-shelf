@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../models.dart';
+import '../opds/opds_parser.dart';
 
 class DetectionResult {
   const DetectionResult({required this.type, required this.normalizedBaseUrl});
@@ -108,6 +109,52 @@ class BackendDetector {
           return DetectionResult(
               type: result.type, normalizedBaseUrl: result.resolvedUrl);
         }
+      }
+    }
+
+    // OPDS goes last and against the URL as typed: it is a positive "does an
+    // OPDS catalog answer here?" document check, so it cannot be reached by
+    // one of the self-hosted servers above (their fingerprints answer first),
+    // and — unlike those probes, which rebuild known paths from the origin —
+    // an OPDS catalog can live at any path, which must survive into the
+    // stored connection URL.
+    return _probeOpds(rawUrlInput);
+  }
+
+  /// OPDS candidates keep the path and query the user typed: a catalog is a
+  /// feed document at an arbitrary URL (`/opds`, `/api/v1/catalog`, ...), not
+  /// a known endpoint on the origin. A fragment is client-side-only and is
+  /// dropped here — `Uri.replace(fragment: '')` would keep a dangling '#'
+  /// in the stored connection URL.
+  List<Uri> _opdsCandidateUrls(String rawUrlInput) {
+    final input = rawUrlInput.trim().split('#').first;
+    if (input.startsWith('http://') || input.startsWith('https://')) {
+      return [Uri.parse(input)];
+    }
+    return [
+      Uri.parse('https://$input'),
+      Uri.parse('http://$input'),
+    ];
+  }
+
+  Future<DetectionResult?> _probeOpds(String rawUrlInput) async {
+    for (final url in _opdsCandidateUrls(rawUrlInput)) {
+      try {
+        final streamed =
+            await _client.send(http.Request('GET', url)).timeout(_timeout);
+        final response = await http.Response.fromStream(streamed);
+        if (response.statusCode != 200) continue;
+        // Content is all that matters here — the Office of the Historian
+        // catalog answers text/xml, and an HTML page or an Atom blog feed
+        // without OPDS relations must never match.
+        if (!looksLikeOpdsCatalog(response.body)) continue;
+        final finalUrl = streamed is http.BaseResponseWithUrl
+            ? (streamed as http.BaseResponseWithUrl).url
+            : url;
+        return DetectionResult(
+            type: BackendType.opds, normalizedBaseUrl: finalUrl);
+      } catch (_) {
+        // Unreachable or not XML: try the next scheme candidate.
       }
     }
     return null;

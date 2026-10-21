@@ -6,6 +6,8 @@ import 'package:http/testing.dart';
 import 'package:kai_shelf/core/backend/detector/backend_detector.dart';
 import 'package:kai_shelf/core/backend/models.dart';
 
+import 'opds/opds_fixtures.dart';
+
 void main() {
   group('BackendDetector', () {
     test(
@@ -230,6 +232,143 @@ void main() {
 
       final detector = BackendDetector(client: client);
       final result = await detector.detect('http://example.com:4567');
+
+      expect(result, isNull);
+    });
+
+    test('identifies an OPDS catalog from its Atom catalog relations',
+        () async {
+      // Confirmed against a real public catalog (Office of the Historian,
+      // https://history.state.gov/api/v1/catalog): the response comes back
+      // as text/xml — detection has to read the document, not the content
+      // type — and the catalog lives at a path that must survive into the
+      // stored connection URL.
+      final client = MockClient((request) async {
+        if (request.url.path == '/api/v1/catalog') {
+          return http.Response(navRootFeedXml, 200,
+              headers: {'content-type': 'text/xml;charset=utf-8'});
+        }
+        return http.Response('not found', 404);
+      });
+
+      final detector = BackendDetector(client: client);
+      final result =
+          await detector.detect('https://history.example/api/v1/catalog');
+
+      expect(result, isNotNull);
+      expect(result!.type, BackendType.opds);
+      // Unlike the server probes, which rebuild paths from the origin, the
+      // OPDS probe must keep the catalog path the user typed.
+      expect(result.normalizedBaseUrl.path, '/api/v1/catalog');
+    });
+
+    test('detects an OPDS catalog on the http:// fallback candidate', () async {
+      final client = MockClient((request) async {
+        if (request.url.scheme == 'http') {
+          return http.Response(navRootFeedXml, 200,
+              headers: {'content-type': 'application/atom+xml'});
+        }
+        return http.Response('not found', 404);
+      });
+
+      final detector = BackendDetector(client: client);
+      final result = await detector.detect('library.example/opds/root.xml');
+
+      expect(result, isNotNull);
+      expect(result!.type, BackendType.opds);
+      expect(result.normalizedBaseUrl.scheme, 'http');
+    });
+
+    test('detects a catalog that only uses subsection relations', () async {
+      // Calibre-Web-style navigation feeds use rel="subsection" without any
+      // http://opds-spec.org/sort/... link.
+      final client = MockClient((request) async {
+        if (request.url.path == '/opds') {
+          return http.Response(navRootFeedNoSearchXml, 200,
+              headers: {'content-type': 'application/atom+xml'});
+        }
+        return http.Response('not found', 404);
+      });
+
+      final detector = BackendDetector(client: client);
+      final result = await detector.detect('https://library.example/opds');
+
+      expect(result, isNotNull);
+      expect(result!.type, BackendType.opds);
+    });
+
+    test('a real Komga is never mistaken for an OPDS catalog', () async {
+      // Komga serves an HTML UI at / and 401 JSON on unknown API paths.
+      final client = MockClient((request) async {
+        if (request.url.path == '/api/v1/claim') {
+          return http.Response(jsonEncode({'isClaimed': true}), 200,
+              headers: {'content-type': 'application/json'});
+        }
+        if (request.url.path == '/') {
+          return http.Response(htmlPage, 200,
+              headers: {'content-type': 'text/html'});
+        }
+        return http.Response(
+            jsonEncode({'status': 401, 'path': request.url.path}), 401,
+            headers: {'content-type': 'application/json'});
+      });
+
+      final detector = BackendDetector(client: client);
+      final result = await detector.detect('https://komga.example/');
+
+      expect(result!.type, BackendType.komga);
+    });
+
+    test('a real Kavita is never mistaken for an OPDS catalog', () async {
+      final client = MockClient((request) async {
+        if (request.url.path == '/api/Health') {
+          return http.Response('Healthy', 200,
+              headers: {'content-type': 'text/plain'});
+        }
+        if (request.url.path == '/') {
+          return http.Response(htmlPage, 200,
+              headers: {'content-type': 'text/html'});
+        }
+        return http.Response('not found', 404);
+      });
+
+      final detector = BackendDetector(client: client);
+      final result = await detector.detect('https://kavita.example/');
+
+      expect(result!.type, BackendType.kavita);
+    });
+
+    test('a real Suwayomi is never mistaken for an OPDS catalog', () async {
+      final client = MockClient((request) async {
+        if (request.url.path == '/api/graphql' && request.method == 'POST') {
+          return http.Response(
+            jsonEncode({
+              'data': {
+                'aboutServer': {'buildType': 'Stable', 'version': '1.0.0'},
+              },
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        return http.Response('not found', 404);
+      });
+
+      final detector = BackendDetector(client: client);
+      final result = await detector.detect('https://suwayomi.example/');
+
+      expect(result!.type, BackendType.suwayomi);
+    });
+
+    test('a plain Atom feed without OPDS relations is not a catalog', () async {
+      // An Atom blog feed at the origin root: well-formed XML, an atom:feed
+      // document, but no OPDS catalog relations anywhere.
+      final client = MockClient((request) async => http.Response(
+          blogAtomFeedXml, 200,
+          headers: {'content-type': 'application/atom+xml'}));
+
+      final detector = BackendDetector(client: client);
+      final result = await detector.detect('https://blog.example/');
 
       expect(result, isNull);
     });

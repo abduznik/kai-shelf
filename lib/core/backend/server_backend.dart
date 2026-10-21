@@ -132,3 +132,15 @@ abstract class HistoryCapableBackend {
   /// result; an empty list means there is nothing further.
   Future<List<KsHistoryEntry>> getHistory({int limit = 50, int offset = 0});
 }
+
+/// Optional capability for backends whose "chapters" are whole files to hand
+/// to the platform rather than page sets to read in-app (OPDS acquisition
+/// links: EPUB, PDF, ...). Feature code checks
+/// `backend is AcquisitionOpenCapableBackend` and opens the file with the
+/// platform handler instead of pushing the reader at it, since reading those
+/// formats in-app is out of scope.
+abstract class AcquisitionOpenCapableBackend {
+  /// The file a chapter id stands for, or null when the id isn't one of this
+  /// backend's acquisition ids.
+  Uri? acquisitionUrlForChapter(String chapterId);
+}

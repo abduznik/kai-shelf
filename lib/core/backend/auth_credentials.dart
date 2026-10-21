@@ -17,6 +17,17 @@ sealed class AuthCredentials {
 
   const factory AuthCredentials.kavita({required String apiKey}) =
       KavitaCredentials;
+
+  /// OPDS has no session auth: the only credentials a catalog can gate its
+  /// feeds with are HTTP Basic.
+  const factory AuthCredentials.opds({String? username, String? password}) =
+      OpdsCredentials;
+}
+
+class OpdsCredentials extends AuthCredentials {
+  const OpdsCredentials({this.username, this.password});
+  final String? username;
+  final String? password;
 }
 
 class SuwayomiCredentials extends AuthCredentials {

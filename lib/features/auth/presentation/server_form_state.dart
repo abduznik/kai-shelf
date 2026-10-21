@@ -89,5 +89,7 @@ String backendTypeLabel(BackendType type) {
       return 'Komga';
     case BackendType.kavita:
       return 'Kavita';
+    case BackendType.opds:
+      return 'OPDS catalog';
   }
 }

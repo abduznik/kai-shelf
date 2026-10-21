@@ -6,6 +6,7 @@ import '../backend/auth_credentials.dart';
 import '../backend/kavita/kavita_backend.dart';
 import '../backend/komga/komga_backend.dart';
 import '../backend/models.dart';
+import '../backend/opds/opds_backend.dart';
 import '../backend/server_backend.dart';
 import '../backend/suwayomi/suwayomi_backend.dart';
 
@@ -26,6 +27,7 @@ class SessionStore {
         BackendType.suwayomi => SuwayomiBackend(info),
         BackendType.komga => KomgaBackend(info),
         BackendType.kavita => KavitaBackend(info),
+        BackendType.opds => OpdsBackend(info),
       };
 
   final ServerBackend Function(ServerConnectionInfo) _backendFactory;

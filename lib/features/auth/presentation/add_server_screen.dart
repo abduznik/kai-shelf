@@ -7,12 +7,14 @@ import '../../../core/backend/auth_credentials.dart';
 import '../../../core/backend/komga/komga_backend.dart';
 import '../../../core/backend/kavita/kavita_backend.dart';
 import '../../../core/backend/models.dart';
+import '../../../core/backend/opds/opds_backend.dart';
 import '../../../core/backend/server_backend.dart';
 import '../../../core/backend/suwayomi/suwayomi_backend.dart';
 import '../../../core/providers/backend_providers.dart';
 import 'server_form_state.dart';
 import 'widgets/kavita_auth_fields.dart';
 import 'widgets/komga_auth_fields.dart';
+import 'widgets/opds_auth_fields.dart';
 import 'widgets/suwayomi_auth_fields.dart';
 
 class AddServerScreen extends ConsumerStatefulWidget {
@@ -51,6 +53,7 @@ class _AddServerScreenState extends ConsumerState<AddServerScreen> {
       BackendType.suwayomi => SuwayomiBackend(draftConnection),
       BackendType.komga => KomgaBackend(draftConnection),
       BackendType.kavita => KavitaBackend(draftConnection),
+      BackendType.opds => OpdsBackend(draftConnection),
     };
 
     final credentials = switch (detection.type) {
@@ -62,6 +65,11 @@ class _AddServerScreenState extends ConsumerState<AddServerScreen> {
           ? AuthCredentials.komgaApiKey(apiKey: _apiKey)
           : AuthCredentials.komgaPassword(email: _email, password: _password),
       BackendType.kavita => AuthCredentials.kavita(apiKey: _apiKey),
+      // OPDS gates its feeds with HTTP Basic, when it gates them at all.
+      BackendType.opds => AuthCredentials.opds(
+          username: _username.isEmpty ? null : _username,
+          password: _password.isEmpty ? null : _password,
+        ),
     };
 
     final result = await backend.login(credentials);
@@ -149,6 +157,10 @@ class _AddServerScreenState extends ConsumerState<AddServerScreen> {
                   ),
                 BackendType.kavita => KavitaAuthFields(
                     onApiKeyChanged: (v) => setState(() => _apiKey = v),
+                  ),
+                BackendType.opds => OpdsAuthFields(
+                    onUsernameChanged: (v) => setState(() => _username = v),
+                    onPasswordChanged: (v) => setState(() => _password = v),
                   ),
               },
               if (_submitError != null) ...[

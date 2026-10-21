@@ -145,8 +145,12 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                         child: ChoiceChip(
-                          label:
-                              Text('${library.name} (${library.mangaCount})'),
+                          // OPDS catalogs can't count a category's titles
+                          // without fetching every page of it, so they report
+                          // 0 — showing that would read as "empty category".
+                          label: Text(library.mangaCount > 0
+                              ? '${library.name} (${library.mangaCount})'
+                              : library.name),
                           selected: _selectedLibraryId == library.id,
                           onSelected: (_) =>
                               setState(() => _selectedLibraryId = library.id),

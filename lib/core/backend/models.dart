@@ -1,4 +1,4 @@
-enum BackendType { suwayomi, komga, kavita }
+enum BackendType { suwayomi, komga, kavita, opds }
 
 enum MangaStatus {
   unknown,
