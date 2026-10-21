@@ -3,11 +3,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/backend/server_backend.dart';
+import '../../../core/providers/app_version_provider.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../../core/providers/incognito_provider.dart';
+import '../../../core/providers/reader_prefs_provider.dart';
+import '../../../core/providers/theme_provider.dart';
+import 'widgets/choice_dialog.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
+
+  static const List<(ThemeMode, String)> _themeChoices = [
+    (ThemeMode.system, 'System'),
+    (ThemeMode.light, 'Light'),
+    (ThemeMode.dark, 'Dark'),
+  ];
+
+  static const List<(ReaderMode, String)> _modeChoices = [
+    (ReaderMode.paged, 'Paged'),
+    (ReaderMode.webtoon, 'Webtoon'),
+  ];
+
+  static const List<(ReadingDirection, String)> _directionChoices = [
+    (ReadingDirection.ltr, 'Left to right'),
+    (ReadingDirection.rtl, 'Right to left'),
+  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -26,6 +46,65 @@ class SettingsScreen extends ConsumerWidget {
             value: ref.watch(incognitoProvider),
             onChanged: (value) =>
                 ref.read(incognitoProvider.notifier).setEnabled(value),
+          ),
+          const Divider(),
+          const _SectionHeader('Appearance'),
+          ListTile(
+            leading: const Icon(Icons.palette_outlined),
+            title: const Text('Theme'),
+            subtitle: Text(_themeLabel(ref.watch(themeModeProvider))),
+            onTap: () async {
+              final picked = await showChoiceDialog<ThemeMode>(
+                context: context,
+                title: 'Theme',
+                selected: ref.read(themeModeProvider),
+                choices: _themeChoices,
+              );
+              if (picked != null) {
+                await ref.read(themeModeProvider.notifier).setThemeMode(picked);
+              }
+            },
+          ),
+          const _SectionHeader('Reading defaults'),
+          ListTile(
+            leading: const Icon(Icons.auto_stories_outlined),
+            title: const Text('Reading mode'),
+            subtitle: Text(switch (ref.watch(readerModeProvider)) {
+              ReaderMode.paged => 'Paged',
+              ReaderMode.webtoon => 'Webtoon',
+            }),
+            onTap: () async {
+              final picked = await showChoiceDialog<ReaderMode>(
+                context: context,
+                title: 'Reading mode',
+                selected: ref.read(readerModeProvider),
+                choices: _modeChoices,
+              );
+              if (picked != null) {
+                await ref.read(readerModeProvider.notifier).setMode(picked);
+              }
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.swipe_outlined),
+            title: const Text('Reading direction'),
+            subtitle: Text(switch (ref.watch(readingDirectionProvider)) {
+              ReadingDirection.ltr => 'Left to right',
+              ReadingDirection.rtl => 'Right to left',
+            }),
+            onTap: () async {
+              final picked = await showChoiceDialog<ReadingDirection>(
+                context: context,
+                title: 'Reading direction',
+                selected: ref.read(readingDirectionProvider),
+                choices: _directionChoices,
+              );
+              if (picked != null) {
+                await ref
+                    .read(readingDirectionProvider.notifier)
+                    .setDirection(picked);
+              }
+            },
           ),
           const Divider(),
           if (backend is SourceCapableBackend)
@@ -52,6 +131,12 @@ class SettingsScreen extends ConsumerWidget {
                   const Text('Install, update and remove source extensions'),
               onTap: () => context.push('/extensions'),
             ),
+          ListTile(
+            leading: const Icon(Icons.download_outlined),
+            title: const Text('Downloads'),
+            subtitle: const Text('Queued and finished downloads'),
+            onTap: () => context.push('/downloads'),
+          ),
           if (backend == null)
             const ListTile(
               leading: Icon(Icons.info_outline),
@@ -72,6 +157,15 @@ class SettingsScreen extends ConsumerWidget {
               },
             ),
           const Divider(),
+          ListTile(
+            leading: const Icon(Icons.tag),
+            title: const Text('Version'),
+            subtitle: ref.watch(packageInfoProvider).when(
+                  data: (info) => Text(formatAppVersion(info)),
+                  loading: () => const Text('…'),
+                  error: (error, stackTrace) => const Text('Unavailable'),
+                ),
+          ),
           const AboutListTile(
             icon: Icon(Icons.info_outline),
             applicationName: 'Kai-Shelf',
@@ -81,4 +175,23 @@ class SettingsScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _themeLabel(ThemeMode mode) => switch (mode) {
+      ThemeMode.system => 'System',
+      ThemeMode.light => 'Light',
+      ThemeMode.dark => 'Dark',
+    };
+
+/// Small group label; Settings stays one flat, scrollable list.
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader(this.label);
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+        child: Text(label, style: Theme.of(context).textTheme.titleSmall),
+      );
 }

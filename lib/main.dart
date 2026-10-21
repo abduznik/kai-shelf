@@ -3,13 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/providers/backend_providers.dart';
 import 'core/providers/incognito_provider.dart';
+import 'core/providers/theme_provider.dart';
 import 'core/router/app_router.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final incognito = await loadIncognitoFlag();
+  final themeMode = await loadThemeMode();
   runApp(ProviderScope(
-    overrides: [incognitoInitialProvider.overrideWithValue(incognito)],
+    overrides: [
+      incognitoInitialProvider.overrideWithValue(incognito),
+      themeModeInitialProvider.overrideWithValue(themeMode),
+    ],
     child: const KaiShelfApp(),
   ));
 }
@@ -62,7 +67,7 @@ class _KaiShelfAppState extends ConsumerState<KaiShelfApp> {
         useMaterial3: true,
         brightness: Brightness.dark,
       ),
-      themeMode: ThemeMode.system,
+      themeMode: ref.watch(themeModeProvider),
       routerConfig: appRouter,
     );
   }
