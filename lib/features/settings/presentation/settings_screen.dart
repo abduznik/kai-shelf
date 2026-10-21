@@ -5,9 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/backend/server_backend.dart';
+import '../../../core/notifications/notification_settings.dart';
 import '../../../core/providers/app_version_provider.dart';
 import '../../../core/providers/backend_providers.dart';
 import '../../../core/providers/incognito_provider.dart';
+import '../../../core/providers/notification_providers.dart';
 import '../../../core/providers/reader_prefs_provider.dart';
 import '../../../core/providers/theme_provider.dart';
 import '../../../core/update/external_link.dart';
@@ -31,6 +33,11 @@ const List<(ReadingDirection, String)> _directionChoices = [
   (ReadingDirection.rtl, 'Right to left'),
 ];
 
+final List<(NotificationCheckInterval, String)> _checkIntervalChoices = [
+  for (final interval in NotificationCheckInterval.values)
+    (interval, interval.label),
+];
+
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
@@ -51,6 +58,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Widget build(BuildContext context) {
     final backend = ref.watch(activeBackendProvider);
     final updateAvailable = ref.watch(updateAvailabilityProvider);
+    final notificationsSupported = ref.watch(notificationsSupportedProvider);
+    final notificationSettings = ref.watch(notificationSettingsProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
@@ -126,6 +135,41 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               }
             },
           ),
+          // Android-only for now (issue #9): elsewhere the whole section
+          // disappears rather than showing a toggle that would do nothing.
+          if (notificationsSupported) ...[
+            const Divider(),
+            const _SectionHeader('Notifications'),
+            SwitchListTile(
+              secondary: const Icon(Icons.notifications_outlined),
+              title: const Text('New chapter alerts'),
+              subtitle: const Text(
+                  'Check your library for new chapters in the background'),
+              value: notificationSettings.enabled,
+              onChanged: (value) =>
+                  ref.read(notificationControllerProvider)?.setEnabled(value),
+            ),
+            if (notificationSettings.enabled)
+              ListTile(
+                leading: const Icon(Icons.schedule_outlined),
+                title: const Text('Check frequency'),
+                subtitle: Text(notificationSettings.interval.label),
+                onTap: () async {
+                  final picked =
+                      await showChoiceDialog<NotificationCheckInterval>(
+                    context: context,
+                    title: 'Check frequency',
+                    selected: notificationSettings.interval,
+                    choices: _checkIntervalChoices,
+                  );
+                  if (picked != null) {
+                    await ref
+                        .read(notificationControllerProvider)
+                        ?.setInterval(picked);
+                  }
+                },
+              ),
+          ],
           const Divider(),
           if (backend is SourceCapableBackend)
             ListTile(

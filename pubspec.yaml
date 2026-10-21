@@ -35,6 +35,10 @@ dependencies:
   path: ^1.9.0
   # App metadata (Settings version row, update check baseline)
   package_info_plus: ^9.0.0
+  # New-chapter notifications (issue #9): local notifications + the
+  # background scheduler that runs the chapter checks.
+  flutter_local_notifications: ^22.3.2
+  workmanager: ^0.10.10
   # Opening the GitHub release page from the update prompt
   url_launcher: ^6.3.0
 
