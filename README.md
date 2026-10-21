@@ -87,6 +87,24 @@ Download the `.ipa` from [Releases](https://github.com/abduznik/kai-shelf/releas
 ### Windows
 Download the latest `.msi` or `.exe` installer from [Releases](https://github.com/abduznik/kai-shelf/releases).
 
+### macOS
+Download the latest `kai-shelf-<version>-macos.dmg` from [Releases](https://github.com/abduznik/kai-shelf/releases), open it, and drag **kai_shelf** into your `Applications` folder.
+
+> **⚠️ Unsigned build:** these CI builds are not code-signed or notarized, so macOS Gatekeeper will block the app on first launch. Either right-click (Control-click) the app in `Applications` and choose **Open**, or clear the quarantine flag:
+> ```bash
+> xattr -cr /Applications/kai_shelf.app
+> ```
+
+### Linux
+Download the latest `kai-shelf-<version>-linux.tar.gz` from [Releases](https://github.com/abduznik/kai-shelf/releases) and extract the bundle — it is a self-contained directory (binary, libraries and assets), not a single executable:
+
+```bash
+tar -xzf kai-shelf-*-linux.tar.gz -C kai-shelf
+./kai-shelf/kai_shelf
+```
+
+Requires GTK 3 (`libgtk-3-0` on Debian/Ubuntu, `gtk3` on Fedora/Arch) installed system-wide.
+
 ### Web
 Access the web build directly from your server or host it anywhere. No installation needed.
 
@@ -99,6 +117,8 @@ flutter run                    # auto-detects platform
 flutter run -d chrome          # web
 flutter build apk              # Android
 flutter build windows          # Windows
+flutter build macos            # macOS
+flutter build linux            # Linux
 ```
 
 **Requirements:** Flutter 3.x, Dart 3.x

@@ -121,3 +121,76 @@ jobs:
         with:
           name: kai-shelf-web-${{ inputs.build_mode }}
           path: kai-shelf-${{ steps.version.outputs.version }}-web-${{ inputs.build_mode }}.zip
+
+  build-macos:
+    name: macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Read app version
+        id: version
+        shell: bash
+        run: |
+          version=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build macOS
+        run: flutter build macos --${{ inputs.build_mode }}
+
+      - name: Package .app as DMG
+        shell: bash
+        run: |
+          app="build/macos/Build/Products/${{ inputs.build_mode == 'debug' && 'Debug' || 'Release' }}/kai_shelf.app"
+          hdiutil create -volname "kai-shelf" -srcfolder "$app" -ov -format UDZO "kai-shelf-${{ steps.version.outputs.version }}-macos.dmg"
+
+      - name: Upload macOS build
+        uses: actions/upload-artifact@v4
+        with:
+          name: kai-shelf-${{ steps.version.outputs.version }}-macos
+          path: kai-shelf-${{ steps.version.outputs.version }}-macos.dmg
+
+  build-linux:
+    name: Linux
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Install Linux desktop dependencies
+        run: sudo apt-get update && sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Read app version
+        id: version
+        shell: bash
+        run: |
+          version=$(grep '^version:' pubspec.yaml | sed 's/version: //;s/+.*//')
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Build Linux
+        run: flutter build linux --${{ inputs.build_mode }}
+
+      - name: Package Linux bundle
+        shell: bash
+        run: tar -czf "kai-shelf-${{ steps.version.outputs.version }}-linux.tar.gz" -C "build/linux/x64/${{ inputs.build_mode }}/bundle" .
+
+      - name: Upload Linux build
+        uses: actions/upload-artifact@v4
+        with:
+          name: kai-shelf-${{ steps.version.outputs.version }}-linux
+          path: kai-shelf-${{ steps.version.outputs.version }}-linux.tar.gz
