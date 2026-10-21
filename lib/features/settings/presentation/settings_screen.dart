@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,35 +10,53 @@ import '../../../core/providers/backend_providers.dart';
 import '../../../core/providers/incognito_provider.dart';
 import '../../../core/providers/reader_prefs_provider.dart';
 import '../../../core/providers/theme_provider.dart';
+import '../../../core/update/external_link.dart';
+import '../../../core/update/update_check_provider.dart';
 import 'widgets/choice_dialog.dart';
+import 'widgets/update_widgets.dart';
 
-class SettingsScreen extends ConsumerWidget {
+const List<(ThemeMode, String)> _themeChoices = [
+  (ThemeMode.system, 'System'),
+  (ThemeMode.light, 'Light'),
+  (ThemeMode.dark, 'Dark'),
+];
+
+const List<(ReaderMode, String)> _modeChoices = [
+  (ReaderMode.paged, 'Paged'),
+  (ReaderMode.webtoon, 'Webtoon'),
+];
+
+const List<(ReadingDirection, String)> _directionChoices = [
+  (ReadingDirection.ltr, 'Left to right'),
+  (ReadingDirection.rtl, 'Right to left'),
+];
+
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
-  static const List<(ThemeMode, String)> _themeChoices = [
-    (ThemeMode.system, 'System'),
-    (ThemeMode.light, 'Light'),
-    (ThemeMode.dark, 'Dark'),
-  ];
+  @override
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
+}
 
-  static const List<(ReaderMode, String)> _modeChoices = [
-    (ReaderMode.paged, 'Paged'),
-    (ReaderMode.webtoon, 'Webtoon'),
-  ];
-
-  static const List<(ReadingDirection, String)> _directionChoices = [
-    (ReadingDirection.ltr, 'Left to right'),
-    (ReadingDirection.rtl, 'Right to left'),
-  ];
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Opportunistic: the provider throttles this to one request a day and
+    // swallows every failure, so opening Settings never waits or errors.
+    unawaited(ref.read(updateCheckProvider.notifier).check());
+  }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final backend = ref.watch(activeBackendProvider);
+    final updateAvailable = ref.watch(updateAvailabilityProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
         children: [
+          const UpdatePromptBanner(),
           SwitchListTile(
             secondary: const Icon(Icons.visibility_off_outlined),
             title: const Text('Incognito mode'),
@@ -157,6 +177,17 @@ class SettingsScreen extends ConsumerWidget {
               },
             ),
           const Divider(),
+          if (updateAvailable != null)
+            ListTile(
+              leading: const Icon(Icons.system_update_alt),
+              title: const Text('Update available'),
+              subtitle: Text('${updateAvailable.tag} — open the release page'),
+              onTap: () => openExternalLink(
+                context,
+                ref,
+                updateAvailable.releaseUrl,
+              ),
+            ),
           ListTile(
             leading: const Icon(Icons.tag),
             title: const Text('Version'),

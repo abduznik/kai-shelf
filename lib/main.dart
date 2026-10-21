@@ -5,6 +5,7 @@ import 'core/providers/backend_providers.dart';
 import 'core/providers/incognito_provider.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/router/app_router.dart';
+import 'core/update/update_check_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -33,6 +34,19 @@ class _KaiShelfAppState extends ConsumerState<KaiShelfApp> {
   void initState() {
     super.initState();
     _restoreSession();
+    _checkForUpdates();
+  }
+
+  /// Asks GitHub for the latest release once the app is up. Fire-and-forget
+  /// by contract: it never blocks the first frame, the provider throttles it
+  /// to one request a day, and every failure is swallowed inside — so there
+  /// is no error dialog on a device without a network.
+  Future<void> _checkForUpdates() async {
+    try {
+      await ref.read(updateCheckProvider.notifier).check();
+    } catch (_) {
+      // Belt and braces: an update check can never break startup.
+    }
   }
 
   /// Signs back in with the saved connection, so reopening the app lands

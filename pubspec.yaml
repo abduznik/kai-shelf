@@ -35,6 +35,8 @@ dependencies:
   path: ^1.9.0
   # App metadata (Settings version row, update check baseline)
   package_info_plus: ^9.0.0
+  # Opening the GitHub release page from the update prompt
+  url_launcher: ^6.3.0
 
 dev_dependencies:
   flutter_test:

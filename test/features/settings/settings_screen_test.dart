@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:kai_shelf/core/providers/incognito_provider.dart';
 import 'package:kai_shelf/core/providers/reader_prefs_provider.dart';
 import 'package:kai_shelf/core/providers/theme_provider.dart';
+import 'package:kai_shelf/core/update/external_link.dart';
+import 'package:kai_shelf/core/update/update_check_provider.dart';
 import 'package:kai_shelf/features/settings/presentation/settings_screen.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -25,9 +29,20 @@ void main() {
     );
   });
 
-  Future<void> pumpSettings(WidgetTester tester) async {
+  Future<void> pumpSettings(
+    WidgetTester tester, {
+    List<Override> overrides = const [],
+  }) async {
     await tester.pumpWidget(
       ProviderScope(
+        overrides: [
+          // Opening Settings fires the opportunistic update check; keep the
+          // test offline and deterministic.
+          updateHttpClientProvider.overrideWithValue(
+            MockClient((_) async => http.Response('', 500)),
+          ),
+          ...overrides,
+        ],
         child: Consumer(
           builder: (context, ref, child) => MaterialApp.router(
             // Mirrors main.dart: the app theme follows the persisted choice.
@@ -167,6 +182,50 @@ void main() {
     expect(container.read(incognitoProvider), isTrue);
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getBool(incognitoPrefKey), isTrue);
+  });
+
+  testWidgets('a newer release brings a quiet row and a dismissible prompt',
+      (tester) async {
+    const url = 'https://example.com/kai-shelf/releases/tag/v1.3.0';
+    final opened = <String>[];
+    await pumpSettings(
+      tester,
+      overrides: [
+        updateAvailabilityProvider.overrideWithValue(
+          const UpdateAvailability(tag: 'v1.3.0', releaseUrl: url),
+        ),
+        externalUrlOpenerProvider.overrideWithValue((link) async {
+          opened.add(link);
+          return true;
+        }),
+      ],
+    );
+
+    expect(find.text('Kai-Shelf v1.3.0 is out'), findsOneWidget,
+        reason: 'the prompt shows while a newer release is known');
+
+    await tester.tap(find.widgetWithText(TextButton, 'Later'));
+    await tester.pumpAndSettle();
+    expect(find.text('Kai-Shelf v1.3.0 is out'), findsNothing,
+        reason: 'Later must not nag again for that version');
+
+    final row = find.widgetWithText(ListTile, 'Update available');
+    await tester.scrollUntilVisible(row, 300);
+    expect(row, findsOneWidget,
+        reason: 'the quiet settings row stays after dismissing the prompt');
+    expect(find.text('v1.3.0 — open the release page'), findsOneWidget);
+
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+    expect(opened, [url], reason: 'the row opens the release page');
+  });
+
+  testWidgets('no update surfaces appear when nothing newer is known',
+      (tester) async {
+    await pumpSettings(tester);
+
+    expect(find.text('Update available'), findsNothing);
+    expect(find.text('Kai-Shelf v1.3.0 is out'), findsNothing);
   });
 }
 
