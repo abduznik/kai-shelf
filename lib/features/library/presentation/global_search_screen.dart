@@ -63,6 +63,14 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
     );
   }
 
+  /// A chip toggles [_filter] after the search already ran, so the sources
+  /// fetched for the current query no longer match it — re-run the search
+  /// with the new filter instead of only repainting the chip.
+  void _refilter(List<KsSource> sources) {
+    if (!_searched) return;
+    _search(_query, sources);
+  }
+
   @override
   Widget build(BuildContext context) {
     final sourcesAsync = ref.watch(sourceListProvider);
@@ -110,8 +118,10 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                   child: FilterChip(
                     label: const Text('Hide NSFW'),
                     selected: _filter.hideNsfw,
-                    onSelected: (v) =>
-                        setState(() => _filter = _filter.copyWith(hideNsfw: v)),
+                    onSelected: (v) {
+                      setState(() => _filter = _filter.copyWith(hideNsfw: v));
+                      _refilter(sources);
+                    },
                   ),
                 ),
                 for (final lang in langs)
@@ -120,11 +130,14 @@ class _GlobalSearchScreenState extends ConsumerState<GlobalSearchScreen> {
                     child: FilterChip(
                       label: Text(lang.toUpperCase()),
                       selected: _filter.languages.contains(lang),
-                      onSelected: (v) => setState(() {
-                        final next = {..._filter.languages};
-                        v ? next.add(lang) : next.remove(lang);
-                        _filter = _filter.copyWith(languages: next);
-                      }),
+                      onSelected: (v) {
+                        setState(() {
+                          final next = {..._filter.languages};
+                          v ? next.add(lang) : next.remove(lang);
+                          _filter = _filter.copyWith(languages: next);
+                        });
+                        _refilter(sources);
+                      },
                     ),
                   ),
               ],
