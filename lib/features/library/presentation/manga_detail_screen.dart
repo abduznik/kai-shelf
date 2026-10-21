@@ -40,29 +40,30 @@ class MangaDetailScreen extends ConsumerWidget {
         title: const Text('Manga'),
         actions: [
           mangaAsync.maybeWhen(
-            data: (manga) => backend is CategoryCapableBackend
-                ? IconButton(
-                    tooltip: manga.inLibrary
-                        ? 'Edit ${(backend as CategoryCapableBackend).categoryNounPlural}'
-                        : 'Add to library',
-                    icon: Icon(backend is SourceCapableBackend
-                        ? (manga.inLibrary
-                            ? Icons.favorite
-                            : Icons.favorite_border)
-                        : Icons.label_outline),
-                    onPressed: () => _toggleLibrary(context, ref, manga),
-                  )
-                : backend is SourceCapableBackend
-                    ? IconButton(
-                        tooltip: manga.inLibrary
-                            ? 'Remove from library'
-                            : 'Add to library',
-                        icon: Icon(manga.inLibrary
-                            ? Icons.favorite
-                            : Icons.favorite_border),
-                        onPressed: () => _toggleLibrary(context, ref, manga),
-                      )
-                    : const SizedBox.shrink(),
+            data: (manga) {
+              if (backend is! CategoryCapableBackend &&
+                  backend is! SourceCapableBackend) {
+                return const SizedBox.shrink();
+              }
+              // One description drives both the tooltip and the screen
+              // reader label, so the icon-only control also says whether the
+              // title is already in the library (issue #16).
+              final description = backend is CategoryCapableBackend
+                  ? (manga.inLibrary
+                      ? 'Edit ${(backend as CategoryCapableBackend).categoryNounPlural}'
+                      : 'Add to library')
+                  : (manga.inLibrary
+                      ? 'Remove from library'
+                      : 'Add to library');
+              final icon = backend is SourceCapableBackend
+                  ? (manga.inLibrary ? Icons.favorite : Icons.favorite_border)
+                  : Icons.label_outline;
+              return IconButton(
+                tooltip: description,
+                icon: Icon(icon, semanticLabel: description),
+                onPressed: () => _toggleLibrary(context, ref, manga),
+              );
+            },
             orElse: () => const SizedBox.shrink(),
           ),
           if (backend is ChapterBookmarkCapableBackend)
@@ -70,8 +71,11 @@ class MangaDetailScreen extends ConsumerWidget {
               tooltip: bookmarkedOnly
                   ? 'Show all chapters'
                   : 'Show bookmarked chapters only',
-              icon:
-                  Icon(bookmarkedOnly ? Icons.bookmark : Icons.bookmark_border),
+              icon: Icon(
+                  bookmarkedOnly ? Icons.bookmark : Icons.bookmark_border,
+                  semanticLabel: bookmarkedOnly
+                      ? 'Show all chapters'
+                      : 'Show bookmarked chapters only'),
               onPressed: () => ref
                   .read(bookmarkedOnlyProvider(mangaId).notifier)
                   .state = !bookmarkedOnly,
@@ -80,15 +84,21 @@ class MangaDetailScreen extends ConsumerWidget {
             tooltip: sortOrder == ChapterSortOrder.descending
                 ? 'Newest first'
                 : 'Oldest first',
-            icon: Icon(sortOrder == ChapterSortOrder.descending
-                ? Icons.arrow_downward
-                : Icons.arrow_upward),
+            icon: Icon(
+                sortOrder == ChapterSortOrder.descending
+                    ? Icons.arrow_downward
+                    : Icons.arrow_upward,
+                semanticLabel: sortOrder == ChapterSortOrder.descending
+                    ? 'Newest first'
+                    : 'Oldest first'),
             onPressed: () => ref.read(chapterSortProvider.notifier).toggle(),
           ),
           chaptersAsync.maybeWhen(
             data: (chapters) => mangaAsync.maybeWhen(
               data: (manga) => PopupMenuButton<_BatchDownloadOption>(
                 tooltip: 'Batch download',
+                icon: const Icon(Icons.more_vert,
+                    semanticLabel: 'Batch download'),
                 onSelected: (option) => _downloadBatch(
                   context,
                   ref,
@@ -207,18 +217,26 @@ class MangaDetailScreen extends ConsumerWidget {
                                 tooltip: chapter.bookmarked
                                     ? 'Remove bookmark'
                                     : 'Bookmark chapter',
-                                icon: Icon(chapter.bookmarked
-                                    ? Icons.bookmark
-                                    : Icons.bookmark_border),
+                                icon: Icon(
+                                    chapter.bookmarked
+                                        ? Icons.bookmark
+                                        : Icons.bookmark_border,
+                                    semanticLabel: chapter.bookmarked
+                                        ? 'Remove bookmark'
+                                        : 'Bookmark chapter'),
                                 onPressed: () => _toggleBookmark(ref, chapter),
                               ),
                             IconButton(
                               tooltip: chapter.read
                                   ? 'Mark as unread'
                                   : 'Mark as read',
-                              icon: Icon(chapter.read
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined),
+                              icon: Icon(
+                                  chapter.read
+                                      ? Icons.visibility_off_outlined
+                                      : Icons.visibility_outlined,
+                                  semanticLabel: chapter.read
+                                      ? 'Mark as unread'
+                                      : 'Mark as read'),
                               onPressed: () =>
                                   _toggleRead(context, ref, chapter),
                             ),
@@ -456,9 +474,10 @@ class _MangaHeader extends StatelessWidget {
                               g.trim().toLowerCase() ==
                               genre.trim().toLowerCase()),
                           onSelected: (_) => onGenreTap(genre),
-                          visualDensity: VisualDensity.compact,
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
+                          // Default tap-target metrics: the previous
+                          // compact + shrinkWrap combo left a 30px hit area
+                          // on these 11px chips, well under the 48dp
+                          // guidance (issue #16).
                         ),
                     ],
                   ),

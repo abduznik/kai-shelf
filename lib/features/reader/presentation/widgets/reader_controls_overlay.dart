@@ -74,133 +74,170 @@ class _ReaderControlsOverlayState extends State<ReaderControlsOverlay> {
     return AnimatedOpacity(
       opacity: visible ? 1 : 0,
       duration: const Duration(milliseconds: 150),
-      child: IgnorePointer(
-        ignoring: !visible,
-        child: Stack(
-          children: [
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                color: Colors.black54,
-                padding: EdgeInsets.only(
-                    top: MediaQuery.of(context).padding.top, bottom: 8),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
-                      onPressed: widget.onClose,
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      icon: Icon(
-                        mode == ReaderMode.paged
-                            ? Icons.view_carousel
-                            : Icons.view_day,
-                        color: Colors.white,
+      // While the controls are faded out they must also disappear from the
+      // semantics tree, or TalkBack/VoiceOver walks into buttons the user
+      // cannot see (issue #16).
+      child: ExcludeSemantics(
+        excluding: !visible,
+        child: IgnorePointer(
+          ignoring: !visible,
+          child: Stack(
+            children: [
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  color: Colors.black54,
+                  padding: EdgeInsets.only(
+                      top: MediaQuery.of(context).padding.top, bottom: 8),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back,
+                            color: Colors.white, semanticLabel: 'Back'),
+                        tooltip: 'Back',
+                        onPressed: widget.onClose,
                       ),
-                      tooltip: mode == ReaderMode.paged
-                          ? 'Switch to continuous scroll'
-                          : 'Switch to paged view',
-                      onPressed: () => widget.onModeChanged(
-                          mode == ReaderMode.paged
-                              ? ReaderMode.webtoon
-                              : ReaderMode.paged),
-                    ),
-                    // Only paged mode has a page order; webtoon scrolls one
-                    // way regardless, so the control would be a lie there.
-                    if (mode == ReaderMode.paged)
+                      const Spacer(),
                       IconButton(
                         icon: Icon(
-                          widget.direction == ReadingDirection.rtl
-                              ? Icons.format_textdirection_r_to_l
-                              : Icons.format_textdirection_l_to_r,
+                          mode == ReaderMode.paged
+                              ? Icons.view_carousel
+                              : Icons.view_day,
                           color: Colors.white,
+                          // The label names the mode that is active now; the
+                          // tooltip says what pressing it switches to.
+                          semanticLabel: mode == ReaderMode.paged
+                              ? 'Paged view'
+                              : 'Continuous scroll',
                         ),
-                        disabledColor: Colors.white24,
-                        tooltip: widget.direction == ReadingDirection.rtl
-                            ? 'Read left to right'
-                            : 'Read right to left',
-                        onPressed: widget.onDirectionChanged == null
-                            ? null
-                            : () => widget.onDirectionChanged!(
+                        tooltip: mode == ReaderMode.paged
+                            ? 'Switch to continuous scroll'
+                            : 'Switch to paged view',
+                        onPressed: () => widget.onModeChanged(
+                            mode == ReaderMode.paged
+                                ? ReaderMode.webtoon
+                                : ReaderMode.paged),
+                      ),
+                      // Only paged mode has a page order; webtoon scrolls one
+                      // way regardless, so the control would be a lie there.
+                      if (mode == ReaderMode.paged)
+                        IconButton(
+                          icon: Icon(
+                            widget.direction == ReadingDirection.rtl
+                                ? Icons.format_textdirection_r_to_l
+                                : Icons.format_textdirection_l_to_r,
+                            color: Colors.white,
+                            // Announce the current reading direction; the
+                            // tooltip says what pressing it switches to.
+                            semanticLabel:
                                 widget.direction == ReadingDirection.rtl
-                                    ? ReadingDirection.ltr
-                                    : ReadingDirection.rtl),
+                                    ? 'Reading direction: right to left'
+                                    : 'Reading direction: left to right',
+                          ),
+                          disabledColor: Colors.white24,
+                          tooltip: widget.direction == ReadingDirection.rtl
+                              ? 'Read left to right'
+                              : 'Read right to left',
+                          onPressed: widget.onDirectionChanged == null
+                              ? null
+                              : () => widget.onDirectionChanged!(
+                                  widget.direction == ReadingDirection.rtl
+                                      ? ReadingDirection.ltr
+                                      : ReadingDirection.rtl),
+                        ),
+                      IconButton(
+                        icon: Icon(Icons.settings_backup_restore,
+                            color: Colors.white,
+                            // Says whether there is anything to reset, so a
+                            // disabled button explains itself.
+                            semanticLabel: widget.hasOverride &&
+                                    widget.onResetToDefault != null
+                                ? 'Reset to default'
+                                : 'Nothing to reset'),
+                        disabledColor: Colors.white24,
+                        tooltip: 'Reset to default',
+                        onPressed: widget.hasOverride &&
+                                widget.onResetToDefault != null
+                            ? widget.onResetToDefault
+                            : null,
                       ),
-                    IconButton(
-                      icon: const Icon(Icons.settings_backup_restore,
-                          color: Colors.white),
-                      disabledColor: Colors.white24,
-                      tooltip: 'Reset to default',
-                      onPressed:
-                          widget.hasOverride && widget.onResetToDefault != null
-                              ? widget.onResetToDefault
+                    ],
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: Container(
+                  color: Colors.black54,
+                  padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(context).padding.bottom + 4,
+                      top: 4),
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.skip_previous,
+                            color: Colors.white,
+                            semanticLabel: 'Previous chapter'),
+                        disabledColor: Colors.white24,
+                        tooltip: 'Previous chapter',
+                        onPressed: widget.onPreviousChapter,
+                      ),
+                      Expanded(
+                        child: Slider(
+                          min: 0,
+                          max: (totalPages - 1).clamp(1, totalPages).toDouble(),
+                          divisions: totalPages > 1 ? totalPages - 1 : null,
+                          value: shownPage
+                              .clamp(0, (totalPages - 1).clamp(1, totalPages))
+                              .toDouble(),
+                          label: '${shownPage + 1}',
+                          // Screen readers hear "Page 4 of 12" instead of the
+                          // raw track percentage; the same formatter names the
+                          // neighbouring page for the slider's adjust actions.
+                          semanticFormatterCallback: totalPages > 0
+                              ? (v) =>
+                                  'Page ${v.round().clamp(0, totalPages - 1).toInt() + 1} of $totalPages'
                               : null,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                color: Colors.black54,
-                padding: EdgeInsets.only(
-                    bottom: MediaQuery.of(context).padding.bottom + 4, top: 4),
-                child: Row(
-                  children: [
-                    IconButton(
-                      icon:
-                          const Icon(Icons.skip_previous, color: Colors.white),
-                      disabledColor: Colors.white24,
-                      tooltip: 'Previous chapter',
-                      onPressed: widget.onPreviousChapter,
-                    ),
-                    Expanded(
-                      child: Slider(
-                        min: 0,
-                        max: (totalPages - 1).clamp(1, totalPages).toDouble(),
-                        divisions: totalPages > 1 ? totalPages - 1 : null,
-                        value: shownPage
-                            .clamp(0, (totalPages - 1).clamp(1, totalPages))
-                            .toDouble(),
-                        label: '${shownPage + 1}',
-                        onChanged: totalPages > 1
-                            ? (v) => setState(() => _dragValue = v)
-                            : null,
-                        onChangeEnd: totalPages > 1
-                            ? (v) {
-                                if (v.round() == currentPage) {
-                                  setState(() => _dragValue = null);
+                          onChanged: totalPages > 1
+                              ? (v) => setState(() => _dragValue = v)
+                              : null,
+                          onChangeEnd: totalPages > 1
+                              ? (v) {
+                                  if (v.round() == currentPage) {
+                                    setState(() => _dragValue = null);
+                                  }
+                                  widget.onPageSelected?.call(v.round());
                                 }
-                                widget.onPageSelected?.call(v.round());
-                              }
-                            : null,
+                              : null,
+                        ),
                       ),
-                    ),
-                    SizedBox(
-                      width: 64,
-                      child: Text(
-                        totalPages > 0 ? '${shownPage + 1} / $totalPages' : '',
-                        style: const TextStyle(color: Colors.white),
-                        textAlign: TextAlign.center,
+                      SizedBox(
+                        width: 64,
+                        child: Text(
+                          totalPages > 0
+                              ? '${shownPage + 1} / $totalPages'
+                              : '',
+                          style: const TextStyle(color: Colors.white),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.skip_next, color: Colors.white),
-                      disabledColor: Colors.white24,
-                      tooltip: 'Next chapter',
-                      onPressed: widget.onNextChapter,
-                    ),
-                  ],
+                      IconButton(
+                        icon: const Icon(Icons.skip_next,
+                            color: Colors.white, semanticLabel: 'Next chapter'),
+                        disabledColor: Colors.white24,
+                        tooltip: 'Next chapter',
+                        onPressed: widget.onNextChapter,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

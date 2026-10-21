@@ -48,6 +48,12 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
   final PagePrefetcher _prefetcher = PagePrefetcher();
   bool _backgroundDownloadTriggered = false;
 
+  /// Tapping the page area reveals or hides the controls; shared by the
+  /// pointer gesture and the semantics tap action so a screen reader
+  /// activation and a finger tap do the same thing.
+  void _toggleControls() =>
+      setState(() => _controlsVisible = !_controlsVisible);
+
   @override
   void dispose() {
     // Flush so leaving quickly (or hopping to the next chapter) still
@@ -244,20 +250,32 @@ class _ReaderScreenState extends ConsumerState<ReaderScreen> {
           return Stack(
             children: [
               GestureDetector(
-                onTap: () =>
-                    setState(() => _controlsVisible = !_controlsVisible),
-                child: mode == ReaderMode.paged
-                    ? PagedReaderView(
-                        pages: pages,
-                        rightToLeft: direction == ReadingDirection.rtl,
-                        initialPage: _currentPage,
-                        jumpController: _jumpController,
-                        onPageChanged: (index) => _onPageChanged(index, pages))
-                    : WebtoonReaderView(
-                        pages: pages,
-                        initialPage: _currentPage,
-                        jumpController: _jumpController,
-                        onPageChanged: (index) => _onPageChanged(index, pages)),
+                onTap: _toggleControls,
+                // The tap-to-reveal-controls zone needs a name and a tap
+                // action of its own: without it screen-reader users cannot
+                // reach the controls at all, and hiding the faded-out
+                // overlay would leave no way in (issue #16).
+                child: Semantics(
+                  button: true,
+                  label: _controlsVisible
+                      ? 'Hide reader controls'
+                      : 'Show reader controls',
+                  onTap: _toggleControls,
+                  child: mode == ReaderMode.paged
+                      ? PagedReaderView(
+                          pages: pages,
+                          rightToLeft: direction == ReadingDirection.rtl,
+                          initialPage: _currentPage,
+                          jumpController: _jumpController,
+                          onPageChanged: (index) =>
+                              _onPageChanged(index, pages))
+                      : WebtoonReaderView(
+                          pages: pages,
+                          initialPage: _currentPage,
+                          jumpController: _jumpController,
+                          onPageChanged: (index) =>
+                              _onPageChanged(index, pages)),
+                ),
               ),
               if (atEnd && adjacent.next != null && !_controlsVisible)
                 Positioned(
